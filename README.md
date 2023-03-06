@@ -22,7 +22,7 @@ Is Emacs the greatest editor?
 
 ![chat-gpt in org-mode](doc/org-ai-demo-1.gif)
 
-You can continue to type and press `C-c C-c` to create a conversation.
+You can continue to type and press `C-c C-c` to create a conversation. `C-g` will interrupt a running request.
 
 
 ### DALL-E in org-mode
