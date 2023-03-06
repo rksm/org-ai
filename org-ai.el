@@ -188,6 +188,10 @@ penalty. `CONTEXT' is the context of the special block."
     (let* ((info (org-ai-get-block-info context))
            (model (or model (alist-get :model info) (if messages org-ai-default-chat-model org-ai-default-completion-model)))
            (max-tokens (or max-tokens (alist-get :max-tokens info) org-ai-default-max-tokens))
+           (top-p (or top-p (alist-get :top-p info)))
+           (temperature (or temperature (alist-get :temperature info)))
+           (frequency-penalty (or frequency-penalty (alist-get :frequency-penalty info)))
+           (presence-penalty (or presence-penalty (alist-get :presence-penalty info)))
            (callback (if messages
                          (lambda (result) (org-ai--insert-chat-completion-response context buffer result))
                        (lambda (result) (org-ai--insert-stream-completion-response context buffer result)))))
