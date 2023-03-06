@@ -96,11 +96,11 @@
   (let ((map (make-sparse-keymap)))
     ;; (define-key map (kbd "C-c C-a") 'org-ai)
     map)
-  "Keymap for org-ai-mode.")
+  "Keymap for `org-ai-mode'.")
 
 ;; create a minor-mode for org-mode
 (define-minor-mode org-ai-mode
-  "Toggle org-ai-mode."
+  "Toggle `org-ai-mode'."
         :init-value nil
         :lighter " org-ai"
         :keymap org-ai-mode-map
