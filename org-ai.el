@@ -124,12 +124,12 @@
 
 (defun org-ai-special-block (&optional el)
   "Are we inside a #+begin_ai...#+end_ai block? `EL' is the current special block."
-  (let ((context (org-element-context el)))
+  (let (org-element-use-cache) ;; with cache enabled we get weird Cached element is incorrect warnings
+    (let ((context (org-element-context el)))
       (if (equal 'special-block (org-element-type context))
           context
         (when-let ((parent (org-element-property :parent context)))
-          (message "parent %s" parent)
-          (org-ai-special-block parent)))))
+          (org-ai-special-block parent))))))
 
 (defun org-ai-get-block-info (&optional context)
   "Parse the header of #+begin_ai...#+end_ai block.
@@ -404,17 +404,20 @@ and the length in chars of the pre-change text replaced by that range."
    (erase-buffer)
    (insert content-string)
    (goto-char (point-min))
+
    (let* (;; collect all positions before [ME]: and [AI]:
           (sections (cl-loop while (search-forward-regexp "\\[ME\\]:\\|\\[AI\\]:" nil t)
                              collect (save-excursion
                                        (backward-char 5)
                                        (point))))
+
           ;; make sure we have from the beginning if there is no first marker
           (sections (if (not sections)
                         (list (point-min))
                         (if (not (= (car sections) (point-min)))
                                (cons (point-min) sections)
                              sections)))
+
           (parts (cl-loop for (start end) on sections by #'cdr
                           collect (string-trim (buffer-substring-no-properties start (or end (point-max))))))
           (parts (if (and
@@ -445,6 +448,7 @@ and the length in chars of the pre-change text replaced by that range."
                              do (push (list :role role :content content) result)
                              do (setq last-role role)
                              finally return (reverse result))))
+
      (apply #'vector messages))))
 
 (cl-assert
