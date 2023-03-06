@@ -48,6 +48,8 @@ The `#+begin_ai...#+end_ai` block can take the following options:
 - `:completion` - instead of using the chatgpt model, use the completion model
 - `:model` - which model to use, see https://platform.openai.com/docs/models for a list of models
 
+For the detailed meaning of those parameters see the [OpenAI API documentation](https://platform.openai.com/docs/api-reference/chat).
+
 ## Setup
 
 ### Melpa
@@ -96,3 +98,10 @@ or just with `require`:
 (setq org-ai-openai-api-token "<ENTER YOUR API TOKEN HERE>")
 (advice-add 'keyboard-quit :before #'org-ai-keyboard-quit))
 ```
+
+## FAQ
+
+### Is this OpenAI specfic?
+
+Currently yes but once there are more high-quality APIs available I'm planning on supporting those as well.
+
