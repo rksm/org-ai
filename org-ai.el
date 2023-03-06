@@ -63,6 +63,8 @@
 
 (defvar org-ai-openai-completion-endpoint "https://api.openai.com/v1/completions")
 
+(defvar org-ai-openai-image-generation-endpoint "https://api.openai.com/v1/images/generations")
+
 (defvar org-ai--current-request-buffer nil
   "Internal var that stores the current request buffer.")
 
@@ -484,22 +486,20 @@ and the length in chars of the pre-change text replaced by that range."
   :group 'org-ai
   :type 'directory)
 
-(defun org-ai--image-save-base64-payload (data file-name)
+(defun org-ai--image-save-base64-payload (base64-string file-name)
   "Write the base64 encoded payload `DATA' to `FILE-NAME'."
-  (let* ((data (alist-get 'data data))
-         (data (aref data 0))
-         (base64-string (alist-get 'b64_json data)))
-    (with-temp-file file-name
-      (insert (base64-decode-string base64-string)))))
+  (with-temp-file file-name
+    (insert (base64-decode-string base64-string))))
 
-(defun org-ai--image-save (data size prompt)
+(defun org-ai--images-save (data size prompt)
   "Save the image `DATA' to into a file. Use `SIZE' to determine the file name.
 Also save the `PROMPT' to a file."
   (make-directory org-ai-image-director t)
-  (let ((file-name (org-ai--make-up-new-image-file-name org-ai-image-director size)))
-    (with-temp-file (string-replace ".png" ".txt" file-name) (insert prompt))
-    (org-ai--image-save-base64-payload data file-name)
-    file-name))
+  (cl-loop for ea across (alist-get 'data data)
+           collect (let ((file-name (org-ai--make-up-new-image-file-name org-ai-image-director size)))
+                     (with-temp-file (string-replace ".png" ".txt" file-name) (insert prompt))
+                     (org-ai--image-save-base64-payload (alist-get 'b64_json ea) file-name)
+                     file-name)))
 
 (defun org-ai--make-up-new-image-file-name (dir size &optional n)
   "Make up a new file name for an image. Use `DIR' as the directory.
@@ -513,7 +513,7 @@ to the file name."
         (org-ai--make-up-new-image-file-name dir size (1+ (or n 0)))
       (expand-file-name file-name dir))))
 
-(defun org-ai--image-generate (prompt &optional size callback)
+(defun org-ai--image-generate (prompt &optional n size callback)
   "Generate an image with `PROMPT'. Use `SIZE' to determine the size of the image.
 If `CALLBACK' is given, call it with the file name of the image
 as argument."
@@ -521,9 +521,8 @@ as argument."
          (url-request-extra-headers `(("Authorization" . ,(string-join `("Bearer" ,token) " "))
                                       ("Content-Type" . "application/json")))
          (url-request-method "POST")
-         (n 1)
+         (n (or n 1))
          (size (or size "256x256"))
-         ;; (response-format "url")
          (response-format "b64_json")
          (url-request-data (json-encode (map-filter (lambda (x _) x)
                                                     `((prompt . ,prompt)
@@ -534,14 +533,17 @@ as argument."
           (prompt prompt)
           (callback callback))
       (url-retrieve
-       "https://api.openai.com/v1/images/generations"
+       org-ai-openai-image-generation-endpoint
        (lambda (_events)
          (when (and (boundp 'url-http-end-of-headers)
                     (not (eq url-http-end-of-headers nil)))
            (goto-char url-http-end-of-headers)
-           (let ((file (org-ai--image-save (json-read) size prompt)))
+           (let ((files (org-ai--images-save (json-read) size prompt)))
              (when callback
-               (funcall callback file)))))))))
+               (cl-loop for file in files
+                        for i from 0
+                        do (funcall callback file i))))))))))
+
 
 (defun org-ai-create-and-embed-image (context)
   "Create an image with the prompt from the current block.
@@ -550,17 +552,20 @@ object."
   (let* ((prompt (org-ai-get-block-content context))
          (prompt (encode-coding-string prompt 'utf-8))
          (info (org-ai-get-block-info context))
-         (size (or (alist-get :size info) "256x256")))
+         (size (or (alist-get :size info) "256x256"))
+         (n (or (alist-get :n info) 1)))
     (let ((buffer (current-buffer)))
-      (org-ai--image-generate prompt size
-                              (lambda (file)
-                                (message "save %s" file)
+      (org-ai--image-generate prompt n size
+                              (lambda (file i)
+                                (message "saved %s" file)
                                 (with-current-buffer buffer
                                   (save-excursion
-                                    (let ((_name (plist-get (cadr (org-ai-special-block)) :name))
+                                    (let ((name (plist-get (cadr (org-ai-special-block)) :name))
                                           (contents-end (plist-get (cadr (org-ai-special-block)) :contents-end)))
                                       (goto-char contents-end)
                                       (forward-line)
+                                      (when name
+                                        (insert (format "#+NAME: %s%s\n" name (if (> n 0) (format "_%s" i) "") )))
                                       (insert (format "[[file:%s]]\n" file))
                                       (org-display-inline-images)))))))))
 

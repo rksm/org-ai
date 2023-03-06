@@ -35,14 +35,29 @@ Hyper realistic sci-fi rendering of super complicated technical machine.
 
 ## Options
 
-The `#+begin_ai...#+end_ai` block can take the following options:
+The `#+begin_ai...#+end_ai` block can take the following options.
+
+### For ChatGPT
+By default, the content of ai blocks are interpreted as messages for ChatGPT. Text following `[ME]:` is associated with the user, text following `[AI]:` is associated as the model's response.
+
 - `:max-tokens number` - number of maximum tokens to generate (default: 120)
 - `:temperature number` - temperature of the model (default: 1)
 - `:top-p number` - top_p of the model (default: 1)
 - `:frequency-penalty number` - frequency penalty of the model (default: 0)
 - `:presence-penalty` - presence penalty of the model (default: 0)
+
+### For DALL-E
+
+When you add an `:image` option to the ai block, the prompt will be used for image generation.
+
 - `:image` - generate an image instead of text
 - `:size` - size of the image to generate (default: 256x256, can be 512x512 or 1024x1024)
+- `:n` - the number of images to generate (default: 1)
+
+### Other text models
+
+The older completion models can also be prompted by adding the `:completion` option to the ai block.
+
 - `:completion` - instead of using the chatgpt model, use the completion model
 - `:model` - which model to use, see https://platform.openai.com/docs/models for a list of models
 
