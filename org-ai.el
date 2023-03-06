@@ -36,6 +36,7 @@
 (require 'url)
 (require 'url-http)
 (require 'cl-lib)
+(require 'gv)
 (require 'json)
 
 (defcustom org-ai-openai-api-token nil
@@ -420,7 +421,7 @@ and the length in chars of the pre-change text replaced by that range."
                       (not (string-suffix-p "[ME]:" (car parts)))
                       (not (string-suffix-p "[AI]:" (car parts))))
                      (progn (when (not (string-prefix-p "[ME]:" (car parts)))
-                                (setf (first parts) (concat "[ME]: " (car parts))))
+                                (setf (car parts) (concat "[ME]: " (car parts))))
                             parts)
                    parts))
 
