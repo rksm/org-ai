@@ -4,6 +4,10 @@ Minor mode for Emacs org-mode that provides access to OpenAI API's.
 
 Inside an org-mode buffer you can use ChatGPT to generate text or DALL-E to generate images.
 
+Note: In order to use this you'll need an [OpenAI account](https://platform.openai.com/)
+and you need to get an API token. As far as I can tell, the current usage limits
+for the free tier get you pretty far.
+
 ## Usage
 
 Simply create an `ai` block and press `C-c C-c`:
