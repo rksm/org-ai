@@ -81,6 +81,14 @@ costs money."
         :group 'org-ai
         (add-hook 'org-ctrl-c-ctrl-c-hook 'org-ai-ctrl-c-ctrl-c nil t))
 
+(defun org-ai-keyboard-quit ()
+  "If there is currently a running request, cancel it."
+  (interactive)
+  (condition-case err
+      (when org-ai--current-request-buffer
+        (org-ai-interrupt-current-request))
+    (error nil)))
+
 (defun org-ai-ctrl-c-ctrl-c ()
   "org-mode integration."
   (when-let ((context (org-ai-special-block)))
@@ -344,7 +352,8 @@ and the length in chars of the pre-change text replaced by that range."
   ""
   (interactive)
   (when (and org-ai--current-request-buffer (buffer-live-p org-ai--current-request-buffer))
-    (kill-buffer org-ai--current-request-buffer)
+    (let (kill-buffer-query-functions)
+      (kill-buffer org-ai--current-request-buffer))
     (org-ai-reset-stream-state)))
 
 (defun org-ai-reset-stream-state ()
