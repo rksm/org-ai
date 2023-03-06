@@ -35,7 +35,7 @@
 (require 'org-element)
 (require 'url)
 (require 'url-http)
-(require 'cl)
+(require 'cl-lib)
 (require 'json)
 
 (defcustom org-ai-openai-api-token nil
@@ -182,8 +182,8 @@ number of tokens to generate. `TEMPERATURE' is the temperature of
 the distribution. `TOP-P' is the top-p value. `FREQUENCY-PENALTY'
 is the frequency penalty. `PRESENCE-PENALTY' is the presence
 penalty. `CONTEXT' is the context of the special block."
-  (lexical-let* ((context (or context (org-ai-special-block)))
-                 (buffer (current-buffer)))
+  (let ((context (or context (org-ai-special-block)))
+        (buffer (current-buffer)))
     (let* ((info (org-ai-get-block-info context))
            (model (or model (alist-get :model info) (if messages org-ai-default-chat-model org-ai-default-completion-model)))
            (max-tokens (or max-tokens (alist-get :max-tokens info) org-ai-default-max-tokens))
@@ -417,10 +417,10 @@ and the length in chars of the pre-change text replaced by that range."
           (parts (cl-loop for (start end) on sections by #'cdr
                           collect (string-trim (buffer-substring-no-properties start (or end (point-max))))))
           (parts (if (and
-                      (not (string-suffix-p "[ME]:" (first parts)))
-                      (not (string-suffix-p "[AI]:" (first parts))))
-                     (progn (when (not (string-prefix-p "[ME]:" (first parts)))
-                                (setf (first parts) (concat "[ME]: " (first parts))))
+                      (not (string-suffix-p "[ME]:" (car parts)))
+                      (not (string-suffix-p "[AI]:" (car parts))))
+                     (progn (when (not (string-prefix-p "[ME]:" (car parts)))
+                                (setf (first parts) (concat "[ME]: " (car parts))))
                             parts)
                    parts))
 
@@ -515,18 +515,18 @@ as argument."
                                                       (n . ,n)
                                                       (response_format . ,response-format)
                                                       (size . ,size))))))
-    (lexical-let ((size size)
-                  (prompt prompt)
-                  (callback callback))
+    (let ((size size)
+          (prompt prompt)
+          (callback callback))
       (url-retrieve
        "https://api.openai.com/v1/images/generations"
        (lambda (_events)
          (when (and (boundp 'url-http-end-of-headers)
                     (not (eq url-http-end-of-headers nil)))
-             (goto-char url-http-end-of-headers)
-          (let ((file (org-ai--image-save (json-read) size prompt)))
-            (when callback
-              (funcall callback file)))))))))
+           (goto-char url-http-end-of-headers)
+           (let ((file (org-ai--image-save (json-read) size prompt)))
+             (when callback
+               (funcall callback file)))))))))
 
 (defun org-ai-create-and-embed-image (context)
   "Create an image with the prompt from the current block.
@@ -536,8 +536,7 @@ object."
          (prompt (encode-coding-string prompt 'utf-8))
          (info (org-ai-get-block-info context))
          (size (or (alist-get :size info) "256x256")))
-    (lexical-let ((context context)
-                  (buffer (current-buffer)))
+    (let ((buffer (current-buffer)))
       (org-ai--image-generate prompt size
                               (lambda (file)
                                 (message "save %s" file)
