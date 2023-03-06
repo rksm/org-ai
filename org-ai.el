@@ -153,7 +153,6 @@ key-value pairs."
          (content-end (org-element-property :contents-end context)))
     (string-trim (buffer-substring-no-properties content-start content-end))))
 
-
 (defun org-ai--request-type (info)
   "Look at the header of the #+begin_ai...#+end_ai block.
 returns the type of request. `INFO' is the alist of key-value
@@ -268,15 +267,15 @@ the response into."
                       (progn
                         (setq org-ai--current-chat-role role)
                         (if (or (string= role "assistant") (string= role "system"))
-                            (insert "[AI]: ")
-                          (insert "[ME]: ")))))))
+                            (insert "\n[AI]: ")
+                          (insert "\n[ME]: ")))))))
 
               (setq org-ai--current-insert-position (point))))))
 
     ;; insert new prompt and change position
     (with-current-buffer buffer
       (goto-char org-ai--current-insert-position)
-      (insert "\n[ME]: "))))
+      (insert "\n\n[ME]: "))))
 
 (cl-defun org-ai-stream-request (&optional &key prompt messages callback model max-tokens temperature top-p frequency-penalty presence-penalty)
   "Send a request to the OpenAI API.
@@ -357,6 +356,9 @@ and the length in chars of the pre-change text replaced by that range."
         ;; TODO this might break
         (unless (= (point) (line-end-position))
           (beginning-of-line))
+
+        (when (> (point) (point-max))
+          (got-to-char (point-max)))
 
         (let ((errored nil))
           ;; (setq org-ai--debug-data-raw
