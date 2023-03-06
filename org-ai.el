@@ -31,6 +31,10 @@
 
 ;;; Code:
 
+(require 'org)
+(require 'url)
+(require 'cl)
+
 (defcustom org-ai-openai-api-token nil
   "Your OpenAI API token. You can retrieve it at
 https://platform.openai.com/account/api-keys."
@@ -49,7 +53,7 @@ https://platform.openai.com/docs/models for other options."
   :type 'string
   :group 'org-ai)
 
-(defcustom org-ai-default-max-tokens 2000
+(defcustom org-ai-default-max-tokens 120
   "The default maximum number of tokens to generate. This is what
 costs money."
   :type 'string
@@ -109,9 +113,12 @@ costs money."
     (string-trim (buffer-substring-no-properties content-start content-end))))
 
 
-(defun org-ai--wants-to-chat (info)
+(defun org-ai--request-type (info)
   ""
-  (not (eql 'x (alist-get :chat info 'x))))
+  (cond
+   ((not (eql 'x (alist-get :chat info 'x))) 'chat)
+   ((not (eql 'x (alist-get :completion info 'x))) 'completion)
+   (t 'chat)))
 
 (defun org-ai-complete-block ()
   "Main command, normally bound to C-c C-c. When you are inside an
@@ -120,10 +127,10 @@ OpenAI API and replace the block with the result."
   (interactive)
   (let* ((context (org-ai-special-block))
          (content (org-ai-get-block-content context))
-         (chat (org-ai--wants-to-chat (org-ai-get-block-info context))))
-    (if chat
-        (org-ai-stream-completion :messages (org-ai--collect-chat-messages content) :context context)
-      (org-ai-stream-completion :prompt (encode-coding-string prompt 'utf-8) :context context))))
+         (req-type (org-ai--request-type (org-ai-get-block-info context))))
+    (cl-case req-type
+      (completion (org-ai-stream-completion :prompt (encode-coding-string prompt 'utf-8) :context context))
+      (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages content) :context context)))))
 
 (defvar org-ai--current-request-buffer nil
   "Internal var that stores the current request buffer.")
@@ -184,6 +191,7 @@ OpenAI API and replace the block with the result."
                   (insert text)
                   (setq org-ai--current-insert-position (point)))))))))
 
+
 (defun org-ai--insert-chat-completion-response (context buffer &optional response)
   "Response is one JSON message of the stream response. When `response' is nil, it means we are done."
   (if response
@@ -208,9 +216,7 @@ OpenAI API and replace the block with the result."
                         (delta (plist-get choice 'delta)))
                   (cond
                    ((plist-get delta 'content)
-                    (let* ((text (plist-get delta 'content))
-                           ;; (text (decode-coding-string text 'utf-8))
-                           )
+                    (let ((text (plist-get delta 'content)))
                       (insert text)))
                    ((plist-get delta 'role)
                     (let ((role (plist-get delta 'role)))
@@ -326,6 +332,7 @@ and the length in chars of the pre-change text replaced by that range."
                       (json-array-type 'vector))
                   (condition-case err
                       (let ((data (json-read)))
+                        ;; (setq org-ai--debug-data (append org-ai--debug-data (list data)))
                         (when org-ai--current-request-callback
                           (funcall org-ai--current-request-callback data))
                         (setq org-ai--url-buffer-last-position (point)))
@@ -368,9 +375,11 @@ together."
                                     (backward-char 5)
                                     (point))))
           ;; make sure we have from the beginning if there is no first marker
-          (sections (if (not (= (car sections) (point-min)))
-                        (cons (point-min) sections)
-                      sections))
+          (sections (if (not sections)
+                        (list (point-min))
+                        (if (not (= (car sections) (point-min)))
+                               (cons (point-min) sections)
+                             sections)))
           (parts (loop for (start end) on sections by #'cdr
                        collect (string-trim (buffer-substring-no-properties start (or end (point-max))))))
           (parts (if (and
@@ -379,8 +388,7 @@ together."
                      (progn (when (not (string-prefix-p "[ME]:" (first parts)))
                                 (setf (first parts) (concat "[ME]: " (first parts))))
                             parts)
-                   parts
-                   ))
+                   parts))
 
           ;; create (:role :content) list
           (messages (loop for part in parts
