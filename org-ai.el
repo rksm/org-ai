@@ -1,3 +1,36 @@
+;;; org-ai.el --- Emacs org-mode integration for the OpenAI API  -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2023 Robert Krahn
+
+;; Author: Robert Krahn <robert@kra.hn>
+;; URL: https://github.com/rksm/org-ai
+;; Package-Requires: ((emacs "28.2"))
+;; Version: 0.1.1
+
+;; This file is NOT part of GNU Emacs.
+
+;; org-ai.el is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; org-ai.el is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with org-ai.el.
+;; If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; Provides a minor-mode for org-mode that allows you to interact with the
+;; OpenAI API. You need an OpenAI API account and an API key for that. See
+;; https://platform.openai.com/account/api-keys.
+
+;;; Code:
+
 (defcustom org-ai-openai-api-token nil "Your OpenAI API token. You can retrieve it at https://platform.openai.com/account/api-keys"
   :type 'string
   :group 'org-ai)
@@ -90,7 +123,7 @@
                                  (if-let* ((choice (aref (plist-get result 'choices) 0))
                                            (text (plist-get choice 'text)))
                                      (let (;;(text (format "\n%s\n" (string-trim text)))
-                                           (text text))
+                                           (text (decode-coding-string text 'utf-8)))
                                        (with-current-buffer buffer
                                          (let ((pos (or org-ai--current-insert-position (org-element-property :contents-end context))))
                                            (save-excursion
@@ -113,6 +146,7 @@
          (url-request-extra-headers `(("Authorization" . ,(string-join `("Bearer" ,token) " "))
                                       ("Content-Type" . "application/json")))
          (url-request-method "POST")
+         (prompt (encode-coding-string prompt 'utf-8))
          (url-request-data
           (json-encode (map-filter (lambda (x _) x)
                                    `((prompt . ,prompt)
@@ -123,7 +157,6 @@
                                      ,@(when top-p             `(top_p . ,top-p))
                                      ,@(when frequency-penalty `(frequency_penalty . ,frequency-penalty))
                                      ,@(when presence-penalty  `(presence_penalty . ,presence-penalty)))))))
-    ;; (message "POST %s" url-request-data)
 
     (setq org-ai--current-request-callback callback)
 
@@ -131,17 +164,7 @@
           (url-retrieve
            "https://api.openai.com/v1/completions"
            (lambda (events)
-             (goto-char url-http-end-of-headers)
-             (setq last-result-raw (buffer-substring-no-properties (point) (point-max)))
-             (let ((json-object-type 'plist)
-                   (json-key-type 'symbol)
-                   (json-array-type 'vector))
-               (let ((result (json-read)))
-                 ;; (message "RESULT %s"result)
-                 (setq last-results (append last-results (list result)))
-                 (setq last-result result)
-                 ;; (funcall callback result)
-                 (org-ai-reset-stream-state))))))
+             (org-ai-reset-stream-state))))
 
     ;; (pop-to-buffer org-ai--current-request-buffer)
 
@@ -149,37 +172,32 @@
       (with-current-buffer org-ai--current-request-buffer
         (add-hook 'after-change-functions 'org-ai--url-request-on-change-function nil t)))))
 
-(defvar changes nil "")
-(setq changes nil)
-
 (defun org-ai--url-request-on-change-function (beg end len)
   "Three arguments are passed to each function: the positions of
 the beginning and end of the range of changed text,
 and the length in chars of the pre-change text replaced by that range."
   (with-current-buffer org-ai--current-request-buffer
-    ;;(message "CHANGED <<<%s>>>" (buffer-substring-no-properties beg end))
-    ;;(setq changes (append changes (list (buffer-substring-no-properties beg end))))
-
-    (if org-ai--url-buffer-last-position
-        (goto-char org-ai--url-buffer-last-position)
-      (goto-char (point-min)))
-    (search-forward "data: " nil t)
-    (let* ((line (buffer-substring-no-properties (point) (line-end-position))))
-      (if (string= line "[DONE]")
-          (progn
-            (org-ai-reset-stream-state)
-            (message "org-ai request done"))
-        (let ((json-object-type 'plist)
-              (json-key-type 'symbol)
-              (json-array-type 'vector))
-          ;; try
-          (condition-case err
-              (let ((data (json-read)))
-                (setq org-ai--url-buffer-last-position (point))
-                (when org-ai--current-request-callback
-                  (funcall org-ai--current-request-callback data)))
-              (error nil))
-          )))))
+    (save-excursion
+     (if org-ai--url-buffer-last-position
+         (goto-char org-ai--url-buffer-last-position)
+       (goto-char (point-min)))
+     (search-forward "data: " nil t)
+     (let* ((line (buffer-substring-no-properties (point) (line-end-position))))
+       (if (string= line "[DONE]")
+           (progn
+             (org-ai-reset-stream-state)
+             (message "org-ai request done"))
+         (let ((json-object-type 'plist)
+               (json-key-type 'symbol)
+               (json-array-type 'vector))
+           ;; try
+           (condition-case err
+               (let ((data (json-read)))
+                 (setq org-ai--url-buffer-last-position (point))
+                 (when org-ai--current-request-callback
+                   (funcall org-ai--current-request-callback data)))
+             (error nil))
+           ))))))
 
 (defun org-ai-reset-stream-state ()
   ""
@@ -191,87 +209,6 @@ and the length in chars of the pre-change text replaced by that range."
   (setq org-ai--current-request-callback nil)
   (setq org-ai--url-buffer-last-position nil))
 
-(comment
-  (pop-to-buffer org-ai--current-request-buffer)
-  (org-ai-stream-completion "foo" :model "bar" :max_tokens 100)
-
-  (with-current-buffer "org-ai-mode-test.org"
-    (list
-     (org-ai-get-block-info)
-     (org-ai-get-block-content))
-
-    )
-
-
-  
-
-
-
-
-
-(nth 0 changes)
-(nth 1 changes)
-(alist-get :foo '((:foo . "bar2")))
-
-(special-block
- (:type "ai" :begin 81 :end 115 :contents-begin 102 :contents-end 106 :post-blank 0 :post-affiliated 81 :parent nil))
-
-(special-block
- (:type "ai" :begin 30 :end 82 :contents-begin 66 :contents-end 73 :post-blank 0 :post-affiliated 46 :name "testing" :parent nil))
-
-
-  (require 'url)
-
-;; (id
-;;  cmpl-6qsO3eQ07TBL9seMPSRKS4zVb4qrN
-;;  object text_completion
-;;  created 1678060139
-;;  model text-davinci-003
-;;  choices [(text
-;;            This is a test sentence used to demonstrate how a test sentence is
-;;            index 0
-;;            logprobs nil
-;;            finish_reason length)]
-;;  usage (prompt_tokens
-;;         4 completion_tokens
-;;         15
-;;         total_tokens 19))
-
-
-  (setq last-results nil)
-
-  (let* ((token org-ai-openai-api-token)
-         (url-request-extra-headers `(("Authorization" . ,(string-join `("Bearer" ,token) " "))
-                                      ("Content-Type" . "application/json")))
-         (url-request-method "POST")
-         (url-request-data
-          (json-encode `((prompt . "This is a test")
-                         (model . "text-davinci-003")
-                         (max_tokens . 100)
-                         (temperature . 0.9)
-                         (top_p . 1)
-                         (frequency_penalty . 0)
-                         (presence_penalty . 0)))))
-    (url-retrieve
-           "https://api.openai.com/v1/completions"
-           (lambda (events)
-             (goto-char url-http-end-of-headers)
-             (let ((json-object-type 'plist)
-                   (json-key-type 'symbol)
-                   (json-array-type 'vector))
-               (let ((result (json-read)))
-                 ;; (message "RESULT %s"result)
-                 (setq last-results (append last-results (list result)))
-                 )))))
-
-
-(id "cmpl-6qtTxXTtUtfR5IcgVowqitQn5rQhT" object "text_completion" created "1678064349" model "text-davinci-003" choices [(text The weather depends on where you are. It could be sunny, rainy, cold, or hot. index 0 logprobs nil finish_reason stop)] usage (prompt_tokens 5 completion_tokens 22 total_tokens 27))
-(alist-get 'id (last last-results))
-(plist-get last-result 'id)
-last-result
-last-result-raw
-(if-let* ((choice (aref (plist-get last-result 'choices) 0))
-          (text (plist-get choice 'text)))
-    (if (string-suffix-p "\n" text) text (concat text "\n"))))
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 (provide 'org-ai-mode)
