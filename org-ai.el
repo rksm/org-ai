@@ -34,6 +34,8 @@
 (require 'org)
 (require 'url)
 (require 'cl)
+(require 'json)
+(require 'org-ai-image)
 
 (defcustom org-ai-openai-api-token nil
   "Your OpenAI API token. You can retrieve it at
@@ -76,7 +78,7 @@ costs money."
 (define-minor-mode org-ai-mode
   "Toggle org-ai-mode."
         :init-value nil
-        :lighter "org-ai"
+        :lighter " org-ai"
         :keymap org-ai-mode-map
         :group 'org-ai
         (add-hook 'org-ctrl-c-ctrl-c-hook 'org-ai-ctrl-c-ctrl-c nil t))
@@ -126,6 +128,7 @@ costs money."
   (cond
    ((not (eql 'x (alist-get :chat info 'x))) 'chat)
    ((not (eql 'x (alist-get :completion info 'x))) 'completion)
+   ((not (eql 'x (alist-get :image info 'x))) 'image)
    (t 'chat)))
 
 (defun org-ai-complete-block ()
@@ -138,6 +141,7 @@ OpenAI API and replace the block with the result."
          (req-type (org-ai--request-type (org-ai-get-block-info context))))
     (cl-case req-type
       (completion (org-ai-stream-completion :prompt (encode-coding-string prompt 'utf-8) :context context))
+      (image (org-ai-create-and-embed-image context))
       (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages content) :context context)))))
 
 (defvar org-ai--current-request-buffer nil
