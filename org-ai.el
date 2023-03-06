@@ -569,6 +569,12 @@ object."
                                       (insert (format "[[file:%s]]\n" file))
                                       (org-display-inline-images)))))))))
 
+(defun org-ai-open-account-usage-page ()
+  "Open web browser with the OpenAI account usage page.
+So you now how deep you're in the rabbit hole."
+  (interactive)
+  (browse-url "https://platform.openai.com/account/usage"))
+
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 (provide 'org-ai)
