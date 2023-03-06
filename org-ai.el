@@ -76,6 +76,9 @@
 (defvar org-ai--current-chat-role nil
   "During chat response streaming, this holds the role of the \"current speaker\".")
 
+(defvar org-ai--chat-got-first-response nil)
+(make-variable-buffer-local 'org-ai--chat-got-first-response)
+
 (defvar org-ai--url-buffer-last-position nil
   "Local buffer var to store last read position.")
 ;; (make-variable-buffer-local 'org-ai--url-buffer-last-position)
@@ -196,6 +199,7 @@ penalty. `CONTEXT' is the context of the special block."
                          (lambda (result) (org-ai--insert-chat-completion-response context buffer result))
                        (lambda (result) (org-ai--insert-stream-completion-response context buffer result)))))
       (setq org-ai--current-insert-position nil)
+      (setq org-ai--chat-got-first-response nil)
       (setq org-ai--debug-data nil)
       (setq org-ai--debug-data-raw nil)
       (org-ai-stream-request :prompt prompt
@@ -228,7 +232,6 @@ from the OpenAI API."
                   (insert text)
                   (setq org-ai--current-insert-position (point)))))))))
 
-
 (defun org-ai--insert-chat-completion-response (context buffer &optional response)
   "`RESPONSE' is one JSON message of the stream response.
 When `RESPONSE' is nil, it means we are done. `CONTEXT' is the
@@ -257,7 +260,9 @@ the response into."
                   (cond
                    ((plist-get delta 'content)
                     (let ((text (plist-get delta 'content)))
-                      (insert text)))
+                      (when (or org-ai--chat-got-first-response (not (string= (string-trim text) "")))
+                        (insert text))
+                      (setq org-ai--chat-got-first-response t)))
                    ((plist-get delta 'role)
                     (let ((role (plist-get delta 'role)))
                       (progn
