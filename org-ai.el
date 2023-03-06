@@ -31,7 +31,9 @@
 
 ;;; Code:
 
-(defcustom org-ai-openai-api-token nil "Your OpenAI API token. You can retrieve it at https://platform.openai.com/account/api-keys"
+(defcustom org-ai-openai-api-token nil
+  "Your OpenAI API token. You can retrieve it at
+https://platform.openai.com/account/api-keys."
   :type 'string
   :group 'org-ai)
 
@@ -51,9 +53,8 @@
         :group 'org-ai
         (add-hook 'org-ctrl-c-ctrl-c-hook 'org-ai-ctrl-c-ctrl-c nil t))
 
-
 (defun org-ai-ctrl-c-ctrl-c ()
-  ""
+  "org-mode integration."
   (when-let ((context (org-ai-special-block)))
     (org-ai-complete-block)
     t))
@@ -84,20 +85,22 @@
     (string-trim (buffer-substring-no-properties content-start content-end))))
 
 (defun org-ai-complete-block ()
-  ""
+  "Main command, normally bound to C-c C-c. When you are inside an
+#+begin_ai...#+end_ai block, it will send the text content to the
+OpenAI API and replace the block with the result."
   (interactive)
   (let* ((context (org-ai-special-block))
          (prompt (org-ai-get-block-content context)))
     (org-ai-stream-completion prompt :context context)))
 
 (defvar org-ai--current-request-buffer nil
-  "")
+  "Internal var that stores the current request buffer.")
 
 (defvar org-ai--current-request-callback nil
-  "")
+  "Internal var that stores the current request callback.")
 
 (defvar org-ai--current-insert-position nil
-  "")
+  "Where to insert the result.")
 (make-variable-buffer-local 'org-ai--current-insert-position)
 
 (defvar org-ai--url-buffer-last-position nil
@@ -106,24 +109,21 @@
 ;; '(makunbound 'org-ai--url-buffer-last-position)
 
 (cl-defun org-ai-stream-completion (prompt &optional &key model max-tokens temperature top-p frequency-penalty presence-penalty context)
-  ""
+  "Starts an server-sent event stream."
   (lexical-let* ((context (or context (org-ai-special-block)))
                  (buffer (current-buffer)))
     (let* ((content (org-ai-get-block-content context))
            (info (org-ai-get-block-info context))
            (model (or model (alist-get :model info)))
            (max-tokens (or max-tokens (alist-get :max-tokens info))))
-      ;; (message "%s model=%s" prompt model)
       (setq org-ai--current-insert-position nil)
       (org-ai-stream-request prompt
                              (lambda (result)
-                               ;; (message "completion %s" result)
                                (if-let ((error (plist-get result 'error)))
                                    (if-let ((message (plist-get error 'message))) (error message) (error error))
                                  (if-let* ((choice (aref (plist-get result 'choices) 0))
                                            (text (plist-get choice 'text)))
-                                     (let (;;(text (format "\n%s\n" (string-trim text)))
-                                           (text (decode-coding-string text 'utf-8)))
+                                     (let ((text (decode-coding-string text 'utf-8)))
                                        (with-current-buffer buffer
                                          (let ((pos (or org-ai--current-insert-position (org-element-property :contents-end context))))
                                            (save-excursion
@@ -196,8 +196,7 @@ and the length in chars of the pre-change text replaced by that range."
                  (setq org-ai--url-buffer-last-position (point))
                  (when org-ai--current-request-callback
                    (funcall org-ai--current-request-callback data)))
-             (error nil))
-           ))))))
+             (error nil))))))))
 
 (defun org-ai-reset-stream-state ()
   ""
