@@ -323,19 +323,18 @@ maximum number of tokens to generate. `TEMPERATURE' is the
 temperature of the distribution. `TOP-P' is the top-p value.
 `FREQUENCY-PENALTY' is the frequency penalty. `PRESENCE-PENALTY'
 is the presence penalty."
-  (let* ((content (if messages `(messages . ,messages) `(prompt . ,prompt)))
-         (data
-          ;; TODO yet unsupported properties: n, stop, logit_bias, user
-          (json-encode (map-filter (lambda (x _) x)
-                                   `(,content
-                                     (model . ,model)
-                                     (stream . t)
-                                     ,@(when max-tokens        `((max_tokens . ,max-tokens)))
-                                     ,@(when temperature       `(temperature . ,temperature))
-                                     ,@(when top-p             `(top_p . ,top-p))
-                                     ,@(when frequency-penalty `(frequency_penalty . ,frequency-penalty))
-                                     ,@(when presence-penalty  `(presence_penalty . ,presence-penalty)))))))
-    data))
+  (let* ((input (if messages `(messages . ,messages) `(prompt . ,prompt)))
+         ;; TODO yet unsupported properties: n, stop, logit_bias, user
+         (data (map-filter (lambda (x _) x)
+                           `(,input
+                             (model . ,model)
+                             (stream . t)
+                             ,@(when max-tokens        `((max_tokens . ,max-tokens)))
+                             ,@(when temperature       `((temperature . ,temperature)))
+                             ,@(when top-p             `((top_p . ,top-p)))
+                             ,@(when frequency-penalty `((frequency_penalty . ,frequency-penalty)))
+                             ,@(when presence-penalty  `((presence_penalty . ,presence-penalty)))))))
+    (json-encode data)))
 
 (defun org-ai--url-request-on-change-function (_beg _end _len)
   "Look into the url-request buffer and manually extracts JSON stream responses.
