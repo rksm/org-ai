@@ -38,7 +38,9 @@ Hyper realistic sci-fi rendering of super complicated technical machine.
 You can create [image
 variations](https://platform.openai.com/docs/guides/images/variations) of any
 image that you have in form of a file. The image needs to be square and its size
-needs to be less than 4MB. And you need curl[^1].
+needs to be less than 4MB. And you need curl[^1]. `M-x org-ai-image-variation`
+or (`C-c M-a v`) will prompt you for an image file and then create new image
+variation(s).
 
 ![dall-e image generation in org-mode](doc/org-ai-demo-3.gif)
 
