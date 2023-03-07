@@ -44,6 +44,11 @@
   :type 'string
   :group 'org-ai)
 
+(defcustom org-ai-image-directory (expand-file-name "org-ai-images/" org-directory)
+  "Directory where images are stored."
+  :group 'org-ai
+  :type 'directory)
+
 (defcustom org-ai-default-completion-model "text-davinci-003"
   "The default model to use for completion requests. See https://platform.openai.com/docs/models for other options."
   :type 'string
@@ -467,11 +472,6 @@ and the length in chars of the pre-change text replaced by that range."
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; DALL-E / image generation
 
-(defcustom org-ai-image-director (expand-file-name "org-ai-images/" org-directory)
-  "Directory where images are stored."
-  :group 'org-ai
-  :type 'directory)
-
 (defun org-ai--image-save-base64-payload (base64-string file-name)
   "Write the base64 encoded payload `BASE64-STRING' to `FILE-NAME'."
   (with-temp-file file-name
@@ -480,9 +480,9 @@ and the length in chars of the pre-change text replaced by that range."
 (defun org-ai--images-save (data size &optional prompt)
   "Save the image `DATA' to into a file. Use `SIZE' to determine the file name.
 Also save the `PROMPT' to a file."
-  (make-directory org-ai-image-director t)
+  (make-directory org-ai-image-directory t)
   (cl-loop for ea across (alist-get 'data data)
-           collect (let ((file-name (org-ai--make-up-new-image-file-name org-ai-image-director size)))
+           collect (let ((file-name (org-ai--make-up-new-image-file-name org-ai-image-directory size)))
                      (when prompt (with-temp-file (string-replace ".png" ".txt" file-name) (insert prompt)))
                      (org-ai--image-save-base64-payload (alist-get 'b64_json ea) file-name)
                      file-name)))
