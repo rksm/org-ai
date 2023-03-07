@@ -99,22 +99,6 @@
 ;;    (goto-char (cadr (nth n org-ai--debug-data-raw)))
 ;;    (beginning-of-line)))
 
-;; define org-ai-mode-map
-(defvar org-ai-mode-map
-  (let ((map (make-sparse-keymap)))
-    ;; (define-key map (kbd "C-c C-a") 'org-ai)
-    map)
-  "Keymap for `org-ai-mode'.")
-
-;; create a minor-mode for org-mode
-(define-minor-mode org-ai-mode
-  "Toggle `org-ai-mode'."
-        :init-value nil
-        :lighter " org-ai"
-        :keymap org-ai-mode-map
-        :group 'org-ai
-        (add-hook 'org-ctrl-c-ctrl-c-hook 'org-ai-ctrl-c-ctrl-c nil t))
-
 (defun org-ai-keyboard-quit ()
   "If there is currently a running request, cancel it."
   (interactive)
@@ -576,27 +560,24 @@ object."
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; image variation
 
-(defun org-ai-image-variation (n size)
+(defun org-ai-image-variation (path n size)
   "Generate `N' variations of the image at point (a link pointing to a file).
-Use `SIZE' to determine the size of the image."
-  (interactive (list (read-number "n: " 1)
+Use `SIZE' to determine the size of the image. `PATH' is the path
+to the image."
+  (interactive (list (let ((at-point (org-ai--image-variation--get-path-of-link-at-point))) (read-file-name "image: " nil at-point nil at-point))
+                     (read-number "n: " 1)
                      (completing-read "size: " '("256x256" "512x512" "1024x1024") nil t "256x256" nil "256x256")))
-  (if-let* ((path (org-ai--image-variation--get-path-of-link-at-point))
-            ;;(base64-data (org-ai--image-variation--read-image-as-base64 path))
-            ;;(data (org-ai--image-variation--read-image-raw path))
-            )
-      (let ((buffer (current-buffer)))
-        (org-ai--image-variation-request path
-                               :n n
-                               :size size
-                               :callback (lambda (file _i)
-                                           (message "saved %s" file)
-                                           (with-current-buffer buffer
-                                             (save-excursion
-                                               (move-end-of-line 1)
-                                               (insert (format "\n[[file:%s]]\n" file))
-                                               (org-display-inline-images))))))
-    (warn "No image at point")))
+  (let ((buffer (current-buffer)))
+    (org-ai--image-variation-request path
+                                     :n n
+                                     :size size
+                                     :callback (lambda (file _i)
+                                                 (message "saved %s" file)
+                                                 (with-current-buffer buffer
+                                                   (save-excursion
+                                                     (move-end-of-line 1)
+                                                     (insert (format "\n\n[[file:%s]]\n" file))
+                                                     (org-display-inline-images)))))))
 
 (cl-defun org-ai--image-variation-request (image-file-path &key n size callback)
   "Generate an image similar to `IMAGE-FILE-PATH'.
@@ -620,11 +601,14 @@ curl to be installed."
       (condition-case err
           (progn (shell-command command (current-buffer))
                  (goto-char (point-min))
-                 (let ((files (org-ai--images-save (json-read) size)))
-                   (when callback
-                     (cl-loop for file in files
-                              for i from 0
-                              do (funcall callback file i)))))
+                 (let ((data (json-read)))
+                   (if (alist-get 'error data)
+                       (error (alist-get 'error data))
+                       (let ((files (org-ai--images-save data size)))
+                            (when callback
+                              (cl-loop for file in files
+                                       for i from 0
+                                       do (funcall callback file i)))))))
 
         (error (let ((buffer-content (buffer-string))
                      (error-buffer (get-buffer-create "*org-ai-image-variation-error*")))
@@ -659,6 +643,23 @@ Return nil if there is no link at point."
             (with-current-buffer buffer
               (base64-encode-string (buffer-string) t))
           (kill-buffer buffer)))))
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+(defvar org-ai-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key org-ai-mode-map (kbd "C-c M-a v") 'org-ai-image-variation)
+    map)
+  "Keymap for `org-ai-mode'.")
+
+;; create a minor-mode for org-mode
+(define-minor-mode org-ai-mode
+  "Toggle `org-ai-mode'."
+        :init-value nil
+        :lighter " org-ai"
+        :keymap org-ai-mode-map
+        :group 'org-ai
+        (add-hook 'org-ctrl-c-ctrl-c-hook 'org-ai-ctrl-c-ctrl-c nil t))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
