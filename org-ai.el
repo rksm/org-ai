@@ -648,7 +648,7 @@ Return nil if there is no link at point."
 
 (defvar org-ai-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key org-ai-mode-map (kbd "C-c M-a v") 'org-ai-image-variation)
+    (define-key map (kbd "C-c M-a v") 'org-ai-image-variation)
     map)
   "Keymap for `org-ai-mode'.")
 
