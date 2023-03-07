@@ -4,8 +4,8 @@
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Package-Requires: ((emacs "28.2"))
 ;; Version: 0.1.1
+;; Package-Requires: ((emacs "28.2"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -359,7 +359,7 @@ and the length in chars of the pre-change text replaced by that range."
           (beginning-of-line))
 
         (when (> (point) (point-max))
-          (got-to-char (point-max)))
+          (goto-char (point-max)))
 
         (let ((errored nil))
           ;; (setq org-ai--debug-data-raw
