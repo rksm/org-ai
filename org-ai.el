@@ -526,46 +526,42 @@ given, call it with the file name of the image as argument."
                                                       (n . ,n)
                                                       (response_format . ,response-format)
                                                       (size . ,size))))))
-    (let ((size size)
-          (prompt prompt)
-          (callback callback))
-      (url-retrieve
-       endpoint
-       (lambda (_events)
-         (when (and (boundp 'url-http-end-of-headers)
-                    (not (eq url-http-end-of-headers nil)))
-           (goto-char url-http-end-of-headers)
-           (let ((files (org-ai--images-save (json-read) size prompt)))
-             (when callback
-               (cl-loop for file in files
-                        for i from 0
-                        do (funcall callback file i))))))))))
+    (url-retrieve
+     endpoint
+     (lambda (_events)
+       (when (and (boundp 'url-http-end-of-headers)
+                  (not (eq url-http-end-of-headers nil)))
+         (goto-char url-http-end-of-headers)
+         (let ((files (org-ai--images-save (json-read) size prompt)))
+           (when callback
+             (cl-loop for file in files
+                      for i from 0
+                      do (funcall callback file i)))))))))
 
 (defun org-ai-create-and-embed-image (context)
   "Create an image with the prompt from the current block.
 Embed the image in the current buffer. `CONTEXT' is the context
 object."
-  (let* ((prompt (org-ai-get-block-content context))
-         (prompt (encode-coding-string prompt 'utf-8))
+  (let* ((prompt (encode-coding-string (org-ai-get-block-content context) 'utf-8))
          (info (org-ai-get-block-info context))
          (size (or (alist-get :size info) "256x256"))
-         (n (or (alist-get :n info) 1)))
-    (let ((buffer (current-buffer)))
-      (org-ai--image-request prompt
-                             :n n
-                             :size size
-                             :callback (lambda (file i)
-                                         (message "saved %s" file)
-                                         (with-current-buffer buffer
-                                           (save-excursion
-                                             (let ((name (plist-get (cadr (org-ai-special-block)) :name))
-                                                   (contents-end (plist-get (cadr (org-ai-special-block)) :contents-end)))
-                                               (goto-char contents-end)
-                                               (forward-line)
-                                               (when name
-                                                 (insert (format "#+NAME: %s%s\n" name (if (> n 0) (format "_%s" i) "") )))
-                                               (insert (format "[[file:%s]]\n" file))
-                                               (org-display-inline-images)))))))))
+         (n (or (alist-get :n info) 1))
+         (buffer (current-buffer)))
+    (org-ai--image-request prompt
+                           :n n
+                           :size size
+                           :callback (lambda (file i)
+                                       (message "saved %s" file)
+                                       (with-current-buffer buffer
+                                         (save-excursion
+                                           (let ((name (plist-get (cadr (org-ai-special-block)) :name))
+                                                 (contents-end (plist-get (cadr (org-ai-special-block)) :contents-end)))
+                                             (goto-char contents-end)
+                                             (forward-line)
+                                             (when name
+                                               (insert (format "#+NAME: %s%s\n" name (if (> n 0) (format "_%s" i) "") )))
+                                             (insert (format "[[file:%s]]\n" file))
+                                             (org-display-inline-images))))))))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; image variation
