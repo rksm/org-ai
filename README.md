@@ -1,14 +1,55 @@
 # org-ai
 
-Minor mode for Emacs org-mode that provides access to OpenAI API's. Inside an org-mode buffer you can use ChatGPT to generate text or DALL-E to generate images. Implemented in pure Emacs Lisp, no external dependencies required (except for image variations[^1]).
+Minor mode for Emacs org-mode that provides access to OpenAI API's. Inside an org-mode buffer you can
+- use ChatGPT to generate text
+- generate images with a text prompt using DALL-E
+- generate image variations of an input image
 
-Note: In order to use this you'll need an [OpenAI account](https://platform.openai.com/)
-and you need to get an API token. As far as I can tell, the current usage limits
-for the free tier get you pretty far.
+Implemented in pure Emacs Lisp, no external dependencies required (except currently for image variations[^1]).
 
-## Usage
+_Note: In order to use this you'll need an [OpenAI account](https://platform.openai.com/) and you need to get an API token. As far as I can tell, the current usage limits for the free tier get you pretty far._
 
-Simply create an `ai` block and press `C-c C-c`:
+## Table of Contents
+
+- [Features](#features)
+- [Demos](#demos)
+    - [ChatGPT in org-mode](#chatgpt-in-org-mode)
+    - [DALL-E in org-mode](#dall-e-in-org-mode)
+    - [Image variations](#image-variations)
+- [Options](#options)
+- [Setup](#setup)
+    - [Melpa](#melpa)
+    - [Straight.el](#straightel)
+    - [Manual](#manual)
+- [FAQ](#faq)
+
+## Features
+
+### `#+begin_ai...#+end_ai` special blocks
+
+Similar to org-babel, these blocks demarcates input (and for ChatGPT also output) for the AI model. You can use it for AI chat, text completion and text -> image generation. See [options](#options) below for more information.
+
+Create a block like
+
+```org
+#+begin_ai
+Is Emacs the greatest editor?
+#+end_ai
+```
+
+and press `C-c C-c`. The Chat input will appear inline and once the response is complete, you can enter your reply and so on. See [the demo](#chatgpt-in-org-mode) below. You can press `C-g` while the ai request is running to cancel it.
+
+Images will appear underneath the ai block inline. Images will be stored (together with their prompt) inside `org-ai-image-directory` which defaults to `~/org/org-ai-images/`.
+
+### Image variation
+
+You can also use an existing image as input to generate more similar looking images. The `org-ai-image-variation` command will prompt for a file path to an image, a size and a count and will then generate as many images and insert links to them inside the current `org-mode` buffer. Images will be stored inside `org-ai-image-directory`. See the [demo](#image-variations) below.
+
+[For more information see the OpenAI documentation](https://platform.openai.com/docs/guides/images/variations). The input image needs to be square and its size needs to be less than 4MB. And you currently need curl available as a command line tool[^1].
+
+[^1]: __Note:__ Currenly the image variation implementation requires a command line curl to be installed. Reason for that is that the OpenAI API expects multipart/form-data requests and the emacs built-in `url-retrieve` does not support that (At least I haven't figured out how). Switching to `request.el` might be a better alternative. If you're interested in contributing, PRs are very welcome!
+
+## Demos
 
 ### ChatGPT in org-mode
 
@@ -35,17 +76,7 @@ Hyper realistic sci-fi rendering of super complicated technical machine.
 
 ### Image variations
 
-You can create [image
-variations](https://platform.openai.com/docs/guides/images/variations) of any
-image that you have in form of a file. The image needs to be square and its size
-needs to be less than 4MB. And you need curl[^1]. `M-x org-ai-image-variation`
-or (`C-c M-a v`) will prompt you for an image file and then create new image
-variation(s).
-
 ![dall-e image generation in org-mode](doc/org-ai-demo-3.gif)
-
-[^1]: __Note:__ Currenly the image variation implementation requires a command line curl to be installed. Reason for that is that the OpenAI API expects multipart/form-data requests and the emacs built-in `url-retrieve` does not support that (At least I haven't figured out how). Switching to `request.el` might be a better alternative. If you're interested in contributing, PRs are very welcome!
-
 
 ## Options
 
