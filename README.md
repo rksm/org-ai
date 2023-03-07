@@ -141,9 +141,7 @@ Then, if you use `use-package`:
   :custom
   (org-ai-openai-api-token "<ENTER YOUR API TOKEN HERE>")
   :init
-  (add-hook 'org-mode-hook #'org-ai-mode)
-  :config
-  (advice-add 'keyboard-quit :before #'org-ai-keyboard-quit))
+  (add-hook 'org-mode-hook #'org-ai-mode))
 ```
 
 or just with `require`:
@@ -154,7 +152,6 @@ or just with `require`:
 (require 'org-ai)
 (add-hook 'org-mode-hook #'org-ai-mode)
 (setq org-ai-openai-api-token "<ENTER YOUR API TOKEN HERE>")
-(advice-add 'keyboard-quit :before #'org-ai-keyboard-quit))
 ```
 
 ## FAQ
@@ -162,4 +159,5 @@ or just with `require`:
 ### Is this OpenAI specfic?
 
 Currently yes but once there are more high-quality APIs available I'm planning on supporting those as well.
+
 

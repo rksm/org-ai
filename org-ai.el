@@ -112,6 +112,15 @@
         (org-ai-interrupt-current-request))
     (error nil)))
 
+(defun org-ai--install-keyboard-quit-advice ()
+  "Cancel current request when `keyboard-quit' is called."
+  (unless (advice-member-p #'org-ai-keyboard-quit 'keyboard-quit)
+    (advice-add 'keyboard-quit :before #'org-ai-keyboard-quit)))
+
+(defun org-ai--uninstall-keyboard-quit-advice ()
+  "Remove the advice that cancels current request when `keyboard-quit' is called."
+  (advice-remove 'keyboard-quit #'org-ai-keyboard-quit))
+
 (defun org-ai-ctrl-c-ctrl-c ()
   "This is added to `org-ctrl-c-ctrl-c-hook' to enable the `org-mode' integration."
   (when-let ((context (org-ai-special-block)))
@@ -388,6 +397,7 @@ and the length in chars of the pre-change text replaced by that range."
   (when (and org-ai--current-request-buffer (buffer-live-p org-ai--current-request-buffer))
     (let (kill-buffer-query-functions)
       (kill-buffer org-ai--current-request-buffer))
+    (setq org-ai--current-request-buffer nil)
     (org-ai-reset-stream-state)))
 
 (defun org-ai-reset-stream-state ()
@@ -660,6 +670,8 @@ Return nil if there is no link at point."
         :keymap org-ai-mode-map
         :group 'org-ai
         (add-hook 'org-ctrl-c-ctrl-c-hook 'org-ai-ctrl-c-ctrl-c nil t))
+
+(org-ai--install-keyboard-quit-advice)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
