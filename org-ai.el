@@ -65,6 +65,8 @@
 
 (defvar org-ai-openai-image-generation-endpoint "https://api.openai.com/v1/images/generations")
 
+(defvar org-ai-openai-image-variation-endpoint "https://api.openai.com/v1/images/variations")
+
 (defvar org-ai--current-request-buffer nil
   "Internal var that stores the current request buffer.")
 
@@ -96,22 +98,6 @@
 ;;    (insert (car (nth n org-ai--debug-data-raw)))
 ;;    (goto-char (cadr (nth n org-ai--debug-data-raw)))
 ;;    (beginning-of-line)))
-
-;; define org-ai-mode-map
-(defvar org-ai-mode-map
-  (let ((map (make-sparse-keymap)))
-    ;; (define-key map (kbd "C-c C-a") 'org-ai)
-    map)
-  "Keymap for `org-ai-mode'.")
-
-;; create a minor-mode for org-mode
-(define-minor-mode org-ai-mode
-  "Toggle `org-ai-mode'."
-        :init-value nil
-        :lighter " org-ai"
-        :keymap org-ai-mode-map
-        :group 'org-ai
-        (add-hook 'org-ctrl-c-ctrl-c-hook 'org-ai-ctrl-c-ctrl-c nil t))
 
 (defun org-ai-keyboard-quit ()
   "If there is currently a running request, cancel it."
@@ -487,17 +473,17 @@ and the length in chars of the pre-change text replaced by that range."
   :type 'directory)
 
 (defun org-ai--image-save-base64-payload (base64-string file-name)
-  "Write the base64 encoded payload `DATA' to `FILE-NAME'."
+  "Write the base64 encoded payload `BASE64-STRING' to `FILE-NAME'."
   (with-temp-file file-name
     (insert (base64-decode-string base64-string))))
 
-(defun org-ai--images-save (data size prompt)
+(defun org-ai--images-save (data size &optional prompt)
   "Save the image `DATA' to into a file. Use `SIZE' to determine the file name.
 Also save the `PROMPT' to a file."
   (make-directory org-ai-image-director t)
   (cl-loop for ea across (alist-get 'data data)
            collect (let ((file-name (org-ai--make-up-new-image-file-name org-ai-image-director size)))
-                     (with-temp-file (string-replace ".png" ".txt" file-name) (insert prompt))
+                     (when prompt (with-temp-file (string-replace ".png" ".txt" file-name) (insert prompt)))
                      (org-ai--image-save-base64-payload (alist-get 'b64_json ea) file-name)
                      file-name)))
 
@@ -513,14 +499,15 @@ to the file name."
         (org-ai--make-up-new-image-file-name dir size (1+ (or n 0)))
       (expand-file-name file-name dir))))
 
-(defun org-ai--image-generate (prompt &optional n size callback)
+(cl-defun org-ai--image-request (prompt &optional &key n size callback)
   "Generate an image with `PROMPT'. Use `SIZE' to determine the size of the image.
-If `CALLBACK' is given, call it with the file name of the image
-as argument."
+`N' specifies the number of images to generate. If `CALLBACK' is
+given, call it with the file name of the image as argument."
   (let* ((token org-ai-openai-api-token)
          (url-request-extra-headers `(("Authorization" . ,(string-join `("Bearer" ,token) " "))
                                       ("Content-Type" . "application/json")))
          (url-request-method "POST")
+         (endpoint org-ai-openai-image-generation-endpoint)
          (n (or n 1))
          (size (or size "256x256"))
          (response-format "b64_json")
@@ -533,7 +520,7 @@ as argument."
           (prompt prompt)
           (callback callback))
       (url-retrieve
-       org-ai-openai-image-generation-endpoint
+       endpoint
        (lambda (_events)
          (when (and (boundp 'url-http-end-of-headers)
                     (not (eq url-http-end-of-headers nil)))
@@ -543,7 +530,6 @@ as argument."
                (cl-loop for file in files
                         for i from 0
                         do (funcall callback file i))))))))))
-
 
 (defun org-ai-create-and-embed-image (context)
   "Create an image with the prompt from the current block.
@@ -555,25 +541,125 @@ object."
          (size (or (alist-get :size info) "256x256"))
          (n (or (alist-get :n info) 1)))
     (let ((buffer (current-buffer)))
-      (org-ai--image-generate prompt n size
-                              (lambda (file i)
-                                (message "saved %s" file)
-                                (with-current-buffer buffer
-                                  (save-excursion
-                                    (let ((name (plist-get (cadr (org-ai-special-block)) :name))
-                                          (contents-end (plist-get (cadr (org-ai-special-block)) :contents-end)))
-                                      (goto-char contents-end)
-                                      (forward-line)
-                                      (when name
-                                        (insert (format "#+NAME: %s%s\n" name (if (> n 0) (format "_%s" i) "") )))
-                                      (insert (format "[[file:%s]]\n" file))
-                                      (org-display-inline-images)))))))))
+      (org-ai--image-request prompt
+                             :n n
+                             :size size
+                             :callback (lambda (file i)
+                                         (message "saved %s" file)
+                                         (with-current-buffer buffer
+                                           (save-excursion
+                                             (let ((name (plist-get (cadr (org-ai-special-block)) :name))
+                                                   (contents-end (plist-get (cadr (org-ai-special-block)) :contents-end)))
+                                               (goto-char contents-end)
+                                               (forward-line)
+                                               (when name
+                                                 (insert (format "#+NAME: %s%s\n" name (if (> n 0) (format "_%s" i) "") )))
+                                               (insert (format "[[file:%s]]\n" file))
+                                               (org-display-inline-images)))))))))
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+;; image variation
+
+(defun org-ai-image-variation (path n size)
+  "Generate `N' variations of the image at point (a link pointing to a file).
+Use `SIZE' to determine the size of the image. `PATH' is the path
+to the image."
+  (interactive (list (let ((at-point (org-ai--image-variation--get-path-of-link-at-point))) (read-file-name "image: " nil at-point nil at-point))
+                     (read-number "n: " 1)
+                     (completing-read "size: " '("256x256" "512x512" "1024x1024") nil t "256x256" nil "256x256")))
+  (let ((buffer (current-buffer)))
+    (org-ai--image-variation-request path
+                                     :n n
+                                     :size size
+                                     :callback (lambda (file _i)
+                                                 (message "saved %s" file)
+                                                 (with-current-buffer buffer
+                                                   (save-excursion
+                                                     (move-end-of-line 1)
+                                                     (insert (format "\n\n[[file:%s]]\n" file))
+                                                     (org-display-inline-images)))))))
+
+(cl-defun org-ai--image-variation-request (image-file-path &key n size callback)
+  "Generate an image similar to `IMAGE-FILE-PATH'.
+Use `SIZE' to determine the size of the image. `N' specifies the
+number of images to generate. If `CALLBACK' is given, call it
+with the file name of the image as argument. Note this requries
+curl to be installed."
+  (let ((command (format "curl --silent %s \\
+                         -H 'Authorization: Bearer %s' \\
+                         -F image='@%s' \\
+                         -F n=%s \\
+                         -F size=\"%s\" \\
+                         -F response_format=\"b64_json\""
+                         org-ai-openai-image-variation-endpoint
+                         org-ai-openai-api-token
+                         image-file-path
+                         n
+                         size)))
+
+    (with-temp-buffer
+      (condition-case err
+          (progn (shell-command command (current-buffer))
+                 (goto-char (point-min))
+                 (let ((data (json-read)))
+                   (if (alist-get 'error data)
+                       (error (alist-get 'error data))
+                       (let ((files (org-ai--images-save data size)))
+                            (when callback
+                              (cl-loop for file in files
+                                       for i from 0
+                                       do (funcall callback file i)))))))
+
+        (error (let ((buffer-content (buffer-string))
+                     (error-buffer (get-buffer-create "*org-ai-image-variation-error*")))
+                 (with-current-buffer error-buffer
+                   (erase-buffer)
+                   (insert buffer-content))
+                 (pop-to-buffer error-buffer))
+               (error err))))))
 
 (defun org-ai-open-account-usage-page ()
   "Open web browser with the OpenAI account usage page.
 So you now how deep you're in the rabbit hole."
   (interactive)
   (browse-url "https://platform.openai.com/account/usage"))
+
+(defun org-ai--image-variation--get-path-of-link-at-point ()
+  "Read the path of the link at point.
+Return nil if there is no link at point."
+  (let* ((context
+	  ;; Only consider supported types, even if they are not the
+	  ;; closest one.
+	  (org-element-lineage (org-element-context) '(link) t)))
+    (when context
+        (org-element-property :path context))))
+
+(defun org-ai--image-variation--read-image-as-base64 (path)
+  "Read the image at `PATH' and return it as base64 encoded string."
+  (when (file-exists-p path)
+    (if-let* ((path (org-ai--image-variation--get-path-of-link-at-point))
+              (buffer (find-file-noselect path)))
+        (prog1
+            (with-current-buffer buffer
+              (base64-encode-string (buffer-string) t))
+          (kill-buffer buffer)))))
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+(defvar org-ai-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key org-ai-mode-map (kbd "C-c M-a v") 'org-ai-image-variation)
+    map)
+  "Keymap for `org-ai-mode'.")
+
+;; create a minor-mode for org-mode
+(define-minor-mode org-ai-mode
+  "Toggle `org-ai-mode'."
+        :init-value nil
+        :lighter " org-ai"
+        :keymap org-ai-mode-map
+        :group 'org-ai
+        (add-hook 'org-ctrl-c-ctrl-c-hook 'org-ai-ctrl-c-ctrl-c nil t))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

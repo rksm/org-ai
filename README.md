@@ -1,6 +1,6 @@
 # org-ai
 
-Minor mode for Emacs org-mode that provides access to OpenAI API's. Inside an org-mode buffer you can use ChatGPT to generate text or DALL-E to generate images. Implemented in pure Emacs Lisp, no external dependencies required.
+Minor mode for Emacs org-mode that provides access to OpenAI API's. Inside an org-mode buffer you can use ChatGPT to generate text or DALL-E to generate images. Implemented in pure Emacs Lisp, no external dependencies required (except for image variations[^1]).
 
 Note: In order to use this you'll need an [OpenAI account](https://platform.openai.com/)
 and you need to get an API token. As far as I can tell, the current usage limits
@@ -32,6 +32,20 @@ Hyper realistic sci-fi rendering of super complicated technical machine.
 ```
 
 ![dall-e in org-mode](doc/org-ai-demo-2.gif)
+
+### Image variations
+
+You can create [image
+variations](https://platform.openai.com/docs/guides/images/variations) of any
+image that you have in form of a file. The image needs to be square and its size
+needs to be less than 4MB. And you need curl[^1]. `M-x org-ai-image-variation`
+or (`C-c M-a v`) will prompt you for an image file and then create new image
+variation(s).
+
+![dall-e image generation in org-mode](doc/org-ai-demo-3.gif)
+
+[^1]: __Note:__ Currenly the image variation implementation requires a command line curl to be installed. Reason for that is that the OpenAI API expects multipart/form-data requests and the emacs built-in `url-retrieve` does not support that (At least I haven't figured out how). Switching to `request.el` might be a better alternative. If you're interested in contributing, PRs are very welcome!
+
 
 ## Options
 
