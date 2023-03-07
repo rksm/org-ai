@@ -287,6 +287,8 @@ model to use. `MAX-TOKENS' is the maximum number of tokens to
 generate. `TEMPERATURE' is the temperature of the distribution.
 `TOP-P' is the top-p value. `FREQUENCY-PENALTY' is the frequency
 penalty. `PRESENCE-PENALTY' is the presence penalty."
+  (unless org-ai-openai-api-token
+    (error "Please set `org-ai-openai-api-token' to your OpenAI API token"))
   (let* ((token org-ai-openai-api-token)
          (url-request-extra-headers `(("Authorization" . ,(string-join `("Bearer" ,token) " "))
                                       ("Content-Type" . "application/json")))
@@ -513,6 +515,8 @@ to the file name."
   "Generate an image with `PROMPT'. Use `SIZE' to determine the size of the image.
 `N' specifies the number of images to generate. If `CALLBACK' is
 given, call it with the file name of the image as argument."
+  (unless org-ai-openai-api-token
+    (error "Please set `org-ai-openai-api-token' to your OpenAI API token"))
   (let* ((token org-ai-openai-api-token)
          (url-request-extra-headers `(("Authorization" . ,(string-join `("Bearer" ,token) " "))
                                       ("Content-Type" . "application/json")))
@@ -591,6 +595,10 @@ Use `SIZE' to determine the size of the image. `N' specifies the
 number of images to generate. If `CALLBACK' is given, call it
 with the file name of the image as argument. Note this requries
 curl to be installed."
+  (unless org-ai-openai-api-token
+    (error "Please set `org-ai-openai-api-token' to your OpenAI API token"))
+  (unless (executable-find "curl")
+    (error "Unable to find curl"))
   (let ((command (format "curl --silent %s \\
                          -H 'Authorization: Bearer %s' \\
                          -F image='@%s' \\
