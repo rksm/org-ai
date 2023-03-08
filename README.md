@@ -9,6 +9,39 @@ Implemented in pure Emacs Lisp, no external dependencies required (except curren
 
 _Note: In order to use this you'll need an [OpenAI account](https://platform.openai.com/) and you need to get an API token. As far as I can tell, the current usage limits for the free tier get you pretty far._
 
+## Demos
+
+### ChatGPT in org-mode
+
+```org
+#+begin_ai
+Is Emacs the greatest editor?
+#+end_ai
+```
+
+![chat-gpt in org-mode](doc/org-ai-demo-1.gif)
+
+You can continue to type and press `C-c C-c` to create a conversation. `C-g` will interrupt a running request.
+
+
+### DALL-E in org-mode
+
+```org
+#+begin_ai :image :size 256x256
+Hyper realistic sci-fi rendering of super complicated technical machine.
+#+end_ai
+```
+
+![dall-e in org-mode](doc/org-ai-demo-2.gif)
+
+### Image variations
+
+![dall-e image generation in org-mode](doc/org-ai-demo-3.gif)
+
+
+------------------------------
+
+
 ## Table of Contents
 
 - [Features](#features)
@@ -49,34 +82,6 @@ You can also use an existing image as input to generate more similar looking ima
 
 [^1]: __Note:__ Currenly the image variation implementation requires a command line curl to be installed. Reason for that is that the OpenAI API expects multipart/form-data requests and the emacs built-in `url-retrieve` does not support that (At least I haven't figured out how). Switching to `request.el` might be a better alternative. If you're interested in contributing, PRs are very welcome!
 
-## Demos
-
-### ChatGPT in org-mode
-
-```org
-#+begin_ai
-Is Emacs the greatest editor?
-#+end_ai
-```
-
-![chat-gpt in org-mode](doc/org-ai-demo-1.gif)
-
-You can continue to type and press `C-c C-c` to create a conversation. `C-g` will interrupt a running request.
-
-
-### DALL-E in org-mode
-
-```org
-#+begin_ai :image :size 256x256
-Hyper realistic sci-fi rendering of super complicated technical machine.
-#+end_ai
-```
-
-![dall-e in org-mode](doc/org-ai-demo-2.gif)
-
-### Image variations
-
-![dall-e image generation in org-mode](doc/org-ai-demo-3.gif)
 
 ## Options
 
