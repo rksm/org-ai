@@ -88,13 +88,21 @@ You can also use an existing image as input to generate more similar looking ima
 The `#+begin_ai...#+end_ai` block can take the following options.
 
 ### For ChatGPT
-By default, the content of ai blocks are interpreted as messages for ChatGPT. Text following `[ME]:` is associated with the user, text following `[AI]:` is associated as the model's response.
+By default, the content of ai blocks are interpreted as messages for ChatGPT. Text following `[ME]:` is associated with the user, text following `[AI]:` is associated as the model's response. Optionally you can start the block with a `[SYS]: <behahvior>` input to prime the model (see `org-ai-default-chat-system-prompt` below).
 
 - `:max-tokens number` - number of maximum tokens to generate (default: 120)
 - `:temperature number` - temperature of the model (default: 1)
 - `:top-p number` - top_p of the model (default: 1)
 - `:frequency-penalty number` - frequency penalty of the model (default: 0)
 - `:presence-penalty` - presence penalty of the model (default: 0)
+- `:sys-everywhere` - repeat the system prompt for every user message (default: nil)
+
+The following custom variables can be used to configure the chat:
+
+- `org-ai-default-chat-model` (default: `"gpt-3.5-turbo"`)
+- `org-ai-default-max-tokens` How long the response should be. Currently cannot exceed 4096. If this value is too small an answer might be cut off (default: 120)
+- `org-ai-default-chat-system-prompt` How to "prime" the model. This is a prompt that is injected before the user's input. (default: `"You are a helpful assistant inside Emacs."`)
+- `org-ai-default-inject-sys-prompt-for-all-messages` Wether to repeat the system prompt for every user message. Sometimes the model "forgets" how it was primed. This can help remind it. (default: `nil`)
 
 ### For DALL-E
 
@@ -104,6 +112,9 @@ When you add an `:image` option to the ai block, the prompt will be used for ima
 - `:size` - size of the image to generate (default: 256x256, can be 512x512 or 1024x1024)
 - `:n` - the number of images to generate (default: 1)
 
+The following custom variables can be used to configure the image generation:
+- `org-ai-image-directory` - where to store the generated images (default: `~/org/org-ai-images/`)
+
 ### Other text models
 
 The older completion models can also be prompted by adding the `:completion` option to the ai block.
@@ -112,6 +123,10 @@ The older completion models can also be prompted by adding the `:completion` opt
 - `:model` - which model to use, see https://platform.openai.com/docs/models for a list of models
 
 For the detailed meaning of those parameters see the [OpenAI API documentation](https://platform.openai.com/docs/api-reference/chat).
+
+The following custom variables can be used to configure the text generation:
+
+- `org-ai-default-completion-model` (default: `"text-davinci-003"`)
 
 ## Setup
 

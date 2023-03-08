@@ -4,7 +4,7 @@
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Version: 0.1.1
+;; Version: 0.1.2
 ;; Package-Requires: ((emacs "28.2"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -61,6 +61,27 @@
 
 (defcustom org-ai-default-max-tokens 120
   "The default maximum number of tokens to generate. This is what costs money."
+  :type 'string
+  :group 'org-ai)
+
+(defcustom org-ai-default-chat-system-prompt "You are a helpful assistant inside Emacs."
+  "The system message helps set the behavior of the assistant:
+https://platform.openai.com/docs/guides/chat/introduction. This
+default prompt is send as the first message before any user (ME)
+or assistant (AI) messages. Inside a +#begin_ai...#+end_ai block
+you can override it with: '[SYS]: <your prompt>'."
+  :type 'string
+  :group 'org-ai)
+
+(defcustom org-ai-default-inject-sys-prompt-for-all-messages nil
+  "Wether to add the `org-ai-default-chat-system-prompt' (or the
+specified [SYS] prompt) before all user messages.
+
+You can set this to true for a single block using the
+:sys-everywhere option on the #+begin_ai block.
+
+This can be useful to enforce the behavior specified by this
+messages."
   :type 'string
   :group 'org-ai)
 
@@ -173,11 +194,16 @@ result."
   (interactive)
   (let* ((context (org-ai-special-block))
          (content (org-ai-get-block-content context))
-         (req-type (org-ai--request-type (org-ai-get-block-info context))))
+         (info (org-ai-get-block-info context))
+         (req-type (org-ai--request-type info))
+         (sys-prompt-for-all-messages (or (not (eql 'x (alist-get :sys-everywhere info 'x)))
+                                          org-ai-default-inject-sys-prompt-for-all-messages)))
     (cl-case req-type
-      (completion (org-ai-stream-completion :prompt (encode-coding-string content 'utf-8) :context context))
+      (completion (org-ai-stream-completion :prompt (encode-coding-string content 'utf-8)
+                                            :context context))
       (image (org-ai-create-and-embed-image context))
-      (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages content) :context context)))))
+      (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages content sys-prompt-for-all-messages)
+                                   :context context)))))
 
 (cl-defun org-ai-stream-completion (&optional &key prompt messages model max-tokens temperature top-p frequency-penalty presence-penalty context)
   "Start a server-sent event stream.
@@ -268,9 +294,13 @@ the response into."
                     (let ((role (plist-get delta 'role)))
                       (progn
                         (setq org-ai--current-chat-role role)
-                        (if (or (string= role "assistant") (string= role "system"))
-                            (insert "\n[AI]: ")
-                          (insert "\n[ME]: ")))))))
+                        (cond
+                         ((string= role "assistant")
+                          (insert "\n[AI]: "))
+                         ((string= role "user")
+                          (insert "\n[ME]: "))
+                         ((string= role "system")
+                          (insert "\n[SYS]: "))))))))
 
               (setq org-ai--current-insert-position (point))))))
 
@@ -413,17 +443,21 @@ and the length in chars of the pre-change text replaced by that range."
   (setq org-ai--url-buffer-last-position nil)
   (setq org-ai--current-chat-role nil))
 
-(defun org-ai--collect-chat-messages (content-string)
-  "Takes `CONTENT-STRING' and splits it by [ME]: and [AI]: markers."
+(defun org-ai--collect-chat-messages (content-string &optional persistant-sys-prompts)
+  "Takes `CONTENT-STRING' and splits it by [SYS]:, [ME]: and [AI]: markers.
+If `PERSISTANT-SYS-PROMPTS' is non-nil, [SYS] prompts are
+intercalated. The [SYS] prompt used is either
+`org-ai-default-chat-system-prompt' or the first [SYS] prompt
+found in `CONTENT-STRING'."
   (with-temp-buffer
    (erase-buffer)
    (insert content-string)
    (goto-char (point-min))
 
    (let* (;; collect all positions before [ME]: and [AI]:
-          (sections (cl-loop while (search-forward-regexp "\\[ME\\]:\\|\\[AI\\]:" nil t)
+          (sections (cl-loop while (search-forward-regexp "\\[SYS\\]:\\|\\[ME\\]:\\|\\[AI\\]:" nil t)
                              collect (save-excursion
-                                       (backward-char 5)
+                                       (goto-char (match-beginning 0))
                                        (point))))
 
           ;; make sure we have from the beginning if there is no first marker
@@ -435,11 +469,13 @@ and the length in chars of the pre-change text replaced by that range."
 
           (parts (cl-loop for (start end) on sections by #'cdr
                           collect (string-trim (buffer-substring-no-properties start (or end (point-max))))))
+
+          ;; if no role is specified, assume [ME]
           (parts (if (and
-                      (not (string-suffix-p "[ME]:" (car parts)))
-                      (not (string-suffix-p "[AI]:" (car parts))))
-                     (progn (when (not (string-prefix-p "[ME]:" (car parts)))
-                                (setf (car parts) (concat "[ME]: " (car parts))))
+                      (not (string-prefix-p "[SYS]:" (car parts)))
+                      (not (string-prefix-p "[ME]:" (car parts)))
+                      (not (string-prefix-p "[AI]:" (car parts))))
+                     (progn (setf (car parts) (concat "[ME]: " (car parts)))
                             parts)
                    parts))
 
@@ -447,9 +483,10 @@ and the length in chars of the pre-change text replaced by that range."
           (messages (cl-loop for part in parts
                              for (type content) = (split-string part ":")
                              when (not (string-empty-p (string-trim content)))
-                             collect (list :role (if (string= (string-trim type) "[ME]")
-                                                     'user
-                                                   'system)
+                             collect (list :role (cond ((string= (string-trim type) "[SYS]") 'system)
+                                                       ((string= (string-trim type) "[ME]") 'user)
+                                                       ((string= (string-trim type) "[AI]") 'assistant)
+                                                       (t 'assistant))
                                            :content (encode-coding-string (string-trim content) 'utf-8))))
 
           ;; merge messages with same role
@@ -462,20 +499,61 @@ and the length in chars of the pre-change text replaced by that range."
                              else
                              do (push (list :role role :content content) result)
                              do (setq last-role role)
-                             finally return (reverse result))))
+                             finally return (reverse result)))
+
+          (starts-with-sys-prompt-p (and messages (eql (plist-get (car messages) :role) 'system)))
+
+          (sys-prompt (if starts-with-sys-prompt-p
+                          (plist-get (car messages) :content)
+                        org-ai-default-chat-system-prompt))
+
+          (messages (if persistant-sys-prompts
+                        (cl-loop with result = nil
+                                 for (_ role _ content) in messages
+                                 if (eql role 'assistant)
+                                 do (push (list :role 'assistant :content content) result)
+                                 else if (eql role 'user)
+                                 do (progn
+                                      (push (list :role 'system :content sys-prompt) result)
+                                      (push (list :role 'user :content content) result))
+                                 finally return (reverse result))
+                      messages)))
 
      (apply #'vector messages))))
 
+;; deal with unspecified prefix
 (cl-assert
  (equal
   (let ((test-string "\ntesting\n  [ME]: foo bar baz zorrk\nfoo\n[AI]: hello hello[ME]: "))
     (org-ai--collect-chat-messages test-string))
-  '[(:role user :content "testing\nfoo bar baz zorrk\nfoo") (:role system :content "hello hello")]))
+  '[(:role user :content "testing\nfoo bar baz zorrk\nfoo")
+    (:role assistant :content "hello hello")]))
 
+;; sys prompt
 (cl-assert
  (equal
-  (let ((test-string "[ME]: [ME]: hello")) (org-ai--collect-chat-messages test-string))
-  '[(:role user :content "hello")]))
+  (let ((test-string "[SYS]: system\n[ME]: user\n[AI]: assistant"))
+    (org-ai--collect-chat-messages test-string))
+  '[(:role system :content "system")
+    (:role user :content "user")
+    (:role assistant :content "assistant")]))
+
+;; sys prompt intercalated
+(cl-assert
+ (equal
+  (let ((test-string "[SYS]: system\n[ME]: user\n[AI]: assistant\n[ME]: user"))
+    (org-ai--collect-chat-messages test-string t))
+  '[(:role system :content "system")
+    (:role user :content "user")
+    (:role assistant :content "assistant")
+    (:role system :content "system")
+    (:role user :content "user")]))
+
+;; merge messages with same role
+(cl-assert
+ (equal
+  (let ((test-string "[ME]: hello [ME]: world")) (org-ai--collect-chat-messages test-string))
+  '[(:role user :content "hello\nworld")]))
 
 ;; (comment
 ;;   (with-current-buffer "org-ai-mode-test.org"

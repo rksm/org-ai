@@ -1,5 +1,15 @@
 # Changelog
 
-## [0.1.0] - 2023-03-06
+## [0.1.2] - 2023-03-08
+### Fix ChatGPT prompts
+- Add `org-ai-default-chat-system-prompt`, `org-ai-default-inject-sys-prompt-for-all-messages`, `:sys-everywhere` option and allow specifying custom per-block `[SYS]:` system prompts.
+- Correctly assign system, user, assistant roles (see https://platform.openai.com/docs/guides/chat/introduction). Before I mixed up system/assistant roles.
+
+## [0.1.1] - 2023-03-06
 ### Initial release
-- support for chatgpt, normal completion, image genration
+`#+begin_ai...#+end_ai` blocks that can be used for:
+- chatgpt input / output
+- "normal" text completion with older gpt models
+- image genration (text -> image)
+
+`org-ai-image-variation` command to generate variations of an image.
