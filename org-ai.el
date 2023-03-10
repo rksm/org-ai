@@ -288,7 +288,7 @@ the response into."
                    ((plist-get delta 'content)
                     (let ((text (plist-get delta 'content)))
                       (when (or org-ai--chat-got-first-response (not (string= (string-trim text) "")))
-                        (insert text))
+                        (insert (decode-coding-string text 'utf-8)))
                       (setq org-ai--chat-got-first-response t)))
                    ((plist-get delta 'role)
                     (let ((role (plist-get delta 'role)))
@@ -324,14 +324,14 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
                                       ("Content-Type" . "application/json")))
          (url-request-method "POST")
          (endpoint (if messages org-ai-openai-chat-endpoint org-ai-openai-completion-endpoint))
-         (url-request-data (org-ai--payload :prompt prompt
-                                            :messages messages
-                                            :model model
-                                            :max-tokens max-tokens
-                                            :temperature temperature
-                                            :top-p top-p
-                                            :frequency-penalty frequency-penalty
-                                            :presence-penalty presence-penalty)))
+         (url-request-data (encode-coding-string (org-ai--payload :prompt prompt
+								  :messages messages
+								  :model model
+								  :max-tokens max-tokens
+								  :temperature temperature
+								  :top-p top-p
+								  :frequency-penalty frequency-penalty
+								  :presence-penalty presence-penalty) 'utf-8)))
 
     ;; (message "REQUEST %s" url-request-data)
 
@@ -414,7 +414,8 @@ and the length in chars of the pre-change text replaced by that range."
                       (json-key-type 'symbol)
                       (json-array-type 'vector))
                   (condition-case _err
-                      (let ((data (json-read)))
+                      (let ((data (json-read-from-string line)))
+			(goto-char (line-end-position))
                         ;; (setq org-ai--debug-data (append org-ai--debug-data (list data)))
                         (when org-ai--current-request-callback
                           (funcall org-ai--current-request-callback data))
@@ -487,7 +488,7 @@ found in `CONTENT-STRING'."
                                                        ((string= (string-trim type) "[ME]") 'user)
                                                        ((string= (string-trim type) "[AI]") 'assistant)
                                                        (t 'assistant))
-                                           :content (encode-coding-string (string-trim content) 'utf-8))))
+                                           :content content)))
 
           ;; merge messages with same role
           (messages (cl-loop with last-role = nil
