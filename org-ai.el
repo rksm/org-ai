@@ -192,6 +192,8 @@ When you are inside an #+begin_ai...#+end_ai block, it will send
 the text content to the OpenAI API and replace the block with the
 result."
   (interactive)
+  ;; set mark so we can easily select the generated text (e.g. to delet it to try again)
+  (push-mark)
   (let* ((context (org-ai-special-block))
          (content (org-ai-get-block-content context))
          (info (org-ai-get-block-info context))
