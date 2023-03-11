@@ -192,8 +192,6 @@ When you are inside an #+begin_ai...#+end_ai block, it will send
 the text content to the OpenAI API and replace the block with the
 result."
   (interactive)
-  ;; set mark so we can easily select the generated text (e.g. to delet it to try again)
-  (push-mark)
   (let* ((context (org-ai-special-block))
          (content (org-ai-get-block-content context))
          (info (org-ai-get-block-info context))
@@ -252,9 +250,13 @@ from the OpenAI API."
         (if-let* ((choice (aref (plist-get response 'choices) 0))
                   (text (plist-get choice 'text)))
             (with-current-buffer buffer
+              ;; set mark so we can easily select the generated text (e.g. to delet it to try again)
+              (unless org-ai--current-insert-position
+                (push-mark (org-element-property :contents-end context)))
               (let ((pos (or org-ai--current-insert-position (org-element-property :contents-end context))))
                 (save-excursion
                   (goto-char pos)
+
                   (when (string-suffix-p "#+end_ai" (buffer-substring-no-properties (point) (line-end-position)))
                     (insert "\n")
                     (backward-char))
