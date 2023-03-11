@@ -727,21 +727,12 @@ Return nil if there is no link at point."
     (when context
         (org-element-property :path context))))
 
-(defun org-ai--image-variation--read-image-as-base64 (path)
-  "Read the image at `PATH' and return it as base64 encoded string."
-  (when (file-exists-p path)
-    (if-let* ((path (org-ai--image-variation--get-path-of-link-at-point))
-              (buffer (find-file-noselect path)))
-        (prog1
-            (with-current-buffer buffer
-              (base64-encode-string (buffer-string) t))
-          (kill-buffer buffer)))))
-
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 (defvar org-ai-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c M-a v") 'org-ai-image-variation)
+    (define-key map (kbd "C-c M-a $") 'org-ai-open-account-usage-page)
     map)
   "Keymap for `org-ai-mode'.")
 
