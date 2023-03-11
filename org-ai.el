@@ -488,7 +488,7 @@ found in `CONTENT-STRING'."
                                                        ((string= (string-trim type) "[ME]") 'user)
                                                        ((string= (string-trim type) "[AI]") 'assistant)
                                                        (t 'assistant))
-                                           :content content)))
+                                           :content (string-trim content))))
 
           ;; merge messages with same role
           (messages (cl-loop with last-role = nil
