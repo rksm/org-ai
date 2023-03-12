@@ -495,6 +495,8 @@ found in `CONTENT-STRING'."
                                                             (t 'assistant))
                                                 :content content)))))
 
+           (messages (cl-remove-if-not (lambda (x) (not (string-empty-p (plist-get x :content)))) messages))
+
            ;; merge messages with same role
            (messages (cl-loop with last-role = nil
                               with result = nil
