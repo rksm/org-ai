@@ -486,13 +486,14 @@ found in `CONTENT-STRING'."
 
           ;; create (:role :content) list
           (messages (cl-loop for part in parts
-                             for (type content) = (split-string part ":")
-                             when (not (string-empty-p (string-trim content)))
-                             collect (list :role (cond ((string= (string-trim type) "[SYS]") 'system)
-                                                       ((string= (string-trim type) "[ME]") 'user)
-                                                       ((string= (string-trim type) "[AI]") 'assistant)
-                                                       (t 'assistant))
-                                           :content (string-trim content))))
+                             collect (cl-destructuring-bind (type &rest content) (split-string part ":")
+                                       (let ((type (string-trim type))
+                                             (content (string-trim (string-join content ":"))))
+                                         (list :role (cond ((string= type "[SYS]") 'system)
+                                                           ((string= type "[ME]") 'user)
+                                                           ((string= type "[AI]") 'assistant)
+                                                           (t 'assistant))
+                                               :content content)))))
 
           ;; merge messages with same role
           (messages (cl-loop with last-role = nil
