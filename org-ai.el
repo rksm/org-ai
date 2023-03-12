@@ -455,77 +455,77 @@ intercalated. The [SYS] prompt used is either
 `org-ai-default-chat-system-prompt' or the first [SYS] prompt
 found in `CONTENT-STRING'."
   (with-temp-buffer
-   (erase-buffer)
-   (insert content-string)
-   (goto-char (point-min))
+    (erase-buffer)
+    (insert content-string)
+    (goto-char (point-min))
 
-   (let* (;; collect all positions before [ME]: and [AI]:
-          (sections (cl-loop while (search-forward-regexp "\\[SYS\\]:\\|\\[ME\\]:\\|\\[AI\\]:" nil t)
-                             collect (save-excursion
-                                       (goto-char (match-beginning 0))
-                                       (point))))
+    (let* (;; collect all positions before [ME]: and [AI]:
+           (sections (cl-loop while (search-forward-regexp "\\[SYS\\]:\\|\\[ME\\]:\\|\\[AI\\]:" nil t)
+                              collect (save-excursion
+                                        (goto-char (match-beginning 0))
+                                        (point))))
 
-          ;; make sure we have from the beginning if there is no first marker
-          (sections (if (not sections)
-                        (list (point-min))
-                        (if (not (= (car sections) (point-min)))
-                               (cons (point-min) sections)
-                             sections)))
+           ;; make sure we have from the beginning if there is no first marker
+           (sections (if (not sections)
+                         (list (point-min))
+                       (if (not (= (car sections) (point-min)))
+                           (cons (point-min) sections)
+                         sections)))
 
-          (parts (cl-loop for (start end) on sections by #'cdr
-                          collect (string-trim (buffer-substring-no-properties start (or end (point-max))))))
+           (parts (cl-loop for (start end) on sections by #'cdr
+                           collect (string-trim (buffer-substring-no-properties start (or end (point-max))))))
 
-          ;; if no role is specified, assume [ME]
-          (parts (if (and
-                      (not (string-prefix-p "[SYS]:" (car parts)))
-                      (not (string-prefix-p "[ME]:" (car parts)))
-                      (not (string-prefix-p "[AI]:" (car parts))))
-                     (progn (setf (car parts) (concat "[ME]: " (car parts)))
-                            parts)
-                   parts))
+           ;; if no role is specified, assume [ME]
+           (parts (if (and
+                       (not (string-prefix-p "[SYS]:" (car parts)))
+                       (not (string-prefix-p "[ME]:" (car parts)))
+                       (not (string-prefix-p "[AI]:" (car parts))))
+                      (progn (setf (car parts) (concat "[ME]: " (car parts)))
+                             parts)
+                    parts))
 
-          ;; create (:role :content) list
-          (messages (cl-loop for part in parts
-                             collect (cl-destructuring-bind (type &rest content) (split-string part ":")
-                                       (let ((type (string-trim type))
-                                             (content (string-trim (string-join content ":"))))
-                                         (list :role (cond ((string= type "[SYS]") 'system)
-                                                           ((string= type "[ME]") 'user)
-                                                           ((string= type "[AI]") 'assistant)
-                                                           (t 'assistant))
-                                               :content content)))))
+           ;; create (:role :content) list
+           (messages (cl-loop for part in parts
+                              collect (cl-destructuring-bind (type &rest content) (split-string part ":")
+                                        (let ((type (string-trim type))
+                                              (content (string-trim (string-join content ":"))))
+                                          (list :role (cond ((string= type "[SYS]") 'system)
+                                                            ((string= type "[ME]") 'user)
+                                                            ((string= type "[AI]") 'assistant)
+                                                            (t 'assistant))
+                                                :content content)))))
 
-          ;; merge messages with same role
-          (messages (cl-loop with last-role = nil
-                             with result = nil
-                             for (_ role _ content) in messages
-                             if (eql role last-role)
-                             do (let ((last (pop result)))
-                                  (push (list :role role :content (string-join (list (plist-get last :content) content) "\n")) result))
-                             else
-                             do (push (list :role role :content content) result)
-                             do (setq last-role role)
-                             finally return (reverse result)))
+           ;; merge messages with same role
+           (messages (cl-loop with last-role = nil
+                              with result = nil
+                              for (_ role _ content) in messages
+                              if (eql role last-role)
+                              do (let ((last (pop result)))
+                                   (push (list :role role :content (string-join (list (plist-get last :content) content) "\n")) result))
+                              else
+                              do (push (list :role role :content content) result)
+                              do (setq last-role role)
+                              finally return (reverse result)))
 
-          (starts-with-sys-prompt-p (and messages (eql (plist-get (car messages) :role) 'system)))
+           (starts-with-sys-prompt-p (and messages (eql (plist-get (car messages) :role) 'system)))
 
-          (sys-prompt (if starts-with-sys-prompt-p
-                          (plist-get (car messages) :content)
-                        org-ai-default-chat-system-prompt))
+           (sys-prompt (if starts-with-sys-prompt-p
+                           (plist-get (car messages) :content)
+                         org-ai-default-chat-system-prompt))
 
-          (messages (if persistant-sys-prompts
-                        (cl-loop with result = nil
-                                 for (_ role _ content) in messages
-                                 if (eql role 'assistant)
-                                 do (push (list :role 'assistant :content content) result)
-                                 else if (eql role 'user)
-                                 do (progn
-                                      (push (list :role 'system :content sys-prompt) result)
-                                      (push (list :role 'user :content content) result))
-                                 finally return (reverse result))
-                      messages)))
+           (messages (if persistant-sys-prompts
+                         (cl-loop with result = nil
+                                  for (_ role _ content) in messages
+                                  if (eql role 'assistant)
+                                  do (push (list :role 'assistant :content content) result)
+                                  else if (eql role 'user)
+                                  do (progn
+                                       (push (list :role 'system :content sys-prompt) result)
+                                       (push (list :role 'user :content content) result))
+                                  finally return (reverse result))
+                       messages)))
 
-     (apply #'vector messages))))
+      (apply #'vector messages))))
 
 ;; deal with unspecified prefix
 (cl-assert
