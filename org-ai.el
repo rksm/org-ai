@@ -74,8 +74,10 @@ you can override it with: '[SYS]: <your prompt>'."
   :group 'org-ai)
 
 (defcustom org-ai-default-inject-sys-prompt-for-all-messages nil
-  "Wether to add the `org-ai-default-chat-system-prompt' (or the
-specified [SYS] prompt) before all user messages.
+  "Wether to add the `org-ai-default-chat-system-prompt' before all user messages.
+
+By default the system prompt is only added before the first
+message.
 
 You can set this to true for a single block using the
 :sys-everywhere option on the #+begin_ai block.
@@ -351,7 +353,7 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
 
     (unless (member 'org-ai--url-request-on-change-function after-change-functions)
       (with-current-buffer org-ai--current-request-buffer
-        (add-hook 'after-change-functions 'org-ai--url-request-on-change-function nil t)))))
+        (add-hook 'after-change-functions #'org-ai--url-request-on-change-function nil t)))))
 
 (cl-defun org-ai--payload (&optional &key prompt messages model max-tokens temperature top-p frequency-penalty presence-penalty)
   "Create the payload for the OpenAI API.
@@ -380,8 +382,7 @@ Three arguments are passed to each function: the positions of
 the beginning and end of the range of changed text,
 and the length in chars of the pre-change text replaced by that range."
   (with-current-buffer org-ai--current-request-buffer
-    (when (and (boundp 'url-http-end-of-headers)
-               (not (null url-http-end-of-headers)))
+    (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
       (save-excursion
         (if org-ai--url-buffer-last-position
             (goto-char org-ai--url-buffer-last-position)
@@ -391,11 +392,8 @@ and the length in chars of the pre-change text replaced by that range."
         ;; Avoid a bug where we skip responses because url has modified the http
         ;; buffer and we are not where we think we are.
         ;; TODO this might break
-        (unless (= (point) (line-end-position))
+        (unless (eolp)
           (beginning-of-line))
-
-        (when (> (point) (point-max))
-          (goto-char (point-max)))
 
         (let ((errored nil))
           ;; (setq org-ai--debug-data-raw
@@ -419,7 +417,7 @@ and the length in chars of the pre-change text replaced by that range."
                       (json-array-type 'vector))
                   (condition-case _err
                       (let ((data (json-read-from-string line)))
-			(goto-char (line-end-position))
+			(end-of-line)
                         ;; (setq org-ai--debug-data (append org-ai--debug-data (list data)))
                         (when org-ai--current-request-callback
                           (funcall org-ai--current-request-callback data))
@@ -442,7 +440,7 @@ and the length in chars of the pre-change text replaced by that range."
   (interactive)
   (when (and org-ai--current-request-buffer (buffer-live-p org-ai--current-request-buffer))
     (with-current-buffer org-ai--current-request-buffer
-      (remove-hook 'after-change-functions 'org-ai--url-request-on-change-function t)
+      (remove-hook 'after-change-functions #'org-ai--url-request-on-change-function t)
       (setq org-ai--url-buffer-last-position nil)))
   (setq org-ai--current-request-callback nil)
   (setq org-ai--url-buffer-last-position nil)
@@ -619,8 +617,7 @@ given, call it with the file name of the image as argument."
     (url-retrieve
      endpoint
      (lambda (_events)
-       (when (and (boundp 'url-http-end-of-headers)
-                  (not (eq url-http-end-of-headers nil)))
+       (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
          (goto-char url-http-end-of-headers)
          (let ((files (org-ai--images-save (json-read) size prompt)))
            (when callback
@@ -750,7 +747,7 @@ Return nil if there is no link at point."
         :lighter " org-ai"
         :keymap org-ai-mode-map
         :group 'org-ai
-        (add-hook 'org-ctrl-c-ctrl-c-hook 'org-ai-ctrl-c-ctrl-c nil t))
+        (add-hook 'org-ctrl-c-ctrl-c-hook #'org-ai-ctrl-c-ctrl-c nil t))
 
 (org-ai--install-keyboard-quit-advice)
 
