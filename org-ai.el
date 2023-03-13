@@ -150,6 +150,18 @@ messages."
     (org-ai-complete-block)
     t))
 
+(defvar yas-snippet-dirs)
+
+(defun org-ai--install-yasnippets ()
+  "Installs org-ai snippets."
+  (let ((snippet-dir (expand-file-name "snippets/"
+                                       (file-name-directory (locate-library "org-ai")))))
+    (unless (boundp 'yas-snippet-dirs)
+      (setq yas-snippet-dirs nil))
+    (add-to-list 'yas-snippet-dirs snippet-dir t)
+    (when (fboundp 'yas-load-directory)
+      (yas-load-directory snippet-dir))))
+
 (defun org-ai-special-block (&optional el)
   "Are we inside a #+begin_ai...#+end_ai block? `EL' is the current special block."
   (let (org-element-use-cache) ;; with cache enabled we get weird Cached element is incorrect warnings
@@ -750,6 +762,7 @@ Return nil if there is no link at point."
         (add-hook 'org-ctrl-c-ctrl-c-hook #'org-ai-ctrl-c-ctrl-c nil t))
 
 (org-ai--install-keyboard-quit-advice)
+(org-ai--install-yasnippets)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

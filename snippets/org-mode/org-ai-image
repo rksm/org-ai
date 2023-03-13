@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+#name : org-ai-image
+#key : aii
+#contributor : Robert Krahn
+# --
+#+begin_ai :image :size ${1:$$(yas/choose-value '("256x256" "512x512" "1024x1024"))}
+$0
+#+end_ai

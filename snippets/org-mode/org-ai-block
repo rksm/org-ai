@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+#name : org-ai-block
+#key : ai
+#contributor : Robert Krahn
+# --
+#+begin_ai :max-tokens ${1:250}
+[SYS]: ${2:You are a helpful assistant.}
+
+[ME]: $0
+#+end_ai
