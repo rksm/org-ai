@@ -195,7 +195,10 @@ Then, if you use `use-package`:
   :custom
   (org-ai-openai-api-token "<ENTER YOUR API TOKEN HERE>")
   :init
-  (add-hook 'org-mode-hook #'org-ai-mode))
+  (add-hook 'org-mode-hook #'org-ai-mode)
+  :config
+  ;; if you are using yasnippet and want `ai` snippets
+  (org-ai-install-yasnippets))
 ```
 
 or just with `require`:
@@ -205,6 +208,7 @@ or just with `require`:
 (require 'org)
 (require 'org-ai)
 (add-hook 'org-mode-hook #'org-ai-mode)
+(org-ai-install-yasnippets) ;; if you are using yasnippet and want `ai` snippets
 (setq org-ai-openai-api-token "<ENTER YOUR API TOKEN HERE>")
 ```
 

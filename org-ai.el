@@ -152,8 +152,9 @@ messages."
 
 (defvar yas-snippet-dirs)
 
-(defun org-ai--install-yasnippets ()
+(defun org-ai-install-yasnippets ()
   "Installs org-ai snippets."
+  (interactive)
   (let ((snippet-dir (expand-file-name "snippets/"
                                        (file-name-directory (locate-library "org-ai")))))
     (unless (boundp 'yas-snippet-dirs)
@@ -762,7 +763,6 @@ Return nil if there is no link at point."
         (add-hook 'org-ctrl-c-ctrl-c-hook #'org-ai-ctrl-c-ctrl-c nil t))
 
 (org-ai--install-keyboard-quit-advice)
-(org-ai--install-yasnippets)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
