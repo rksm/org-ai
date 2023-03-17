@@ -124,7 +124,7 @@ The `#+begin_ai...#+end_ai` block can take the following options.
 ### For ChatGPT
 By default, the content of ai blocks are interpreted as messages for ChatGPT. Text following `[ME]:` is associated with the user, text following `[AI]:` is associated as the model's response. Optionally you can start the block with a `[SYS]: <behahvior>` input to prime the model (see `org-ai-default-chat-system-prompt` below).
 
-- `:max-tokens number` - number of maximum tokens to generate (default: 120)
+- `:max-tokens number` - number of maximum tokens to generate (default: nil, use OpenAI's default)
 - `:temperature number` - temperature of the model (default: 1)
 - `:top-p number` - top_p of the model (default: 1)
 - `:frequency-penalty number` - frequency penalty of the model (default: 0)
@@ -134,7 +134,7 @@ By default, the content of ai blocks are interpreted as messages for ChatGPT. Te
 The following custom variables can be used to configure the chat:
 
 - `org-ai-default-chat-model` (default: `"gpt-3.5-turbo"`)
-- `org-ai-default-max-tokens` How long the response should be. Currently cannot exceed 4096. If this value is too small an answer might be cut off (default: 120)
+- `org-ai-default-max-tokens` How long the response should be. Currently cannot exceed 4096. If this value is too small an answer might be cut off (default: nil)
 - `org-ai-default-chat-system-prompt` How to "prime" the model. This is a prompt that is injected before the user's input. (default: `"You are a helpful assistant inside Emacs."`)
 - `org-ai-default-inject-sys-prompt-for-all-messages` Wether to repeat the system prompt for every user message. Sometimes the model "forgets" how it was primed. This can help remind it. (default: `nil`)
 

@@ -59,7 +59,7 @@
   :type 'string
   :group 'org-ai)
 
-(defcustom org-ai-default-max-tokens 120
+(defcustom org-ai-default-max-tokens nil
   "The default maximum number of tokens to generate. This is what costs money."
   :type 'string
   :group 'org-ai)
