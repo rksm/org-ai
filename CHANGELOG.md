@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.4] - 2023-03-17
+### Added
+- Support for retrieving `org-ai-openai-api-token` from `authinfo` file.
+
 ## [0.1.3] - 2023-03-13
 ### Added
 - org-ai yasnippets

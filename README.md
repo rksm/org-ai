@@ -212,6 +212,16 @@ or just with `require`:
 (setq org-ai-openai-api-token "<ENTER YOUR API TOKEN HERE>")
 ```
 
+### API key with auth-source
+
+`org-ai` supports `auth-source` for retrieving your API key. You can store a secret in the format
+
+```
+machine api.openai.com login org-ai password <your-api-key>
+```
+
+If this is present, `org-ai-openai-api-token` will be automatically set that value. If you do not want `org-ai` to try to retrieve the key from `auth-source`, you can set `org-ai-use-auth-source` to `nil` before loading `org-ai`.
+
 ## FAQ
 
 ### Is this OpenAI specfic?

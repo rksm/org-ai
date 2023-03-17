@@ -4,7 +4,7 @@
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Version: 0.1.3
+;; Version: 0.1.4
 ;; Package-Requires: ((emacs "28.2"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -43,6 +43,19 @@
   "This is your OpenAI API token that you need to specify. You can retrieve it at https://platform.openai.com/account/api-keys."
   :type 'string
   :group 'org-ai)
+
+(defcustom org-ai-use-auth-source t
+  "If non-nil, use auth-source to retrieve the OpenAI API token.
+The secret should be stored in the format
+  machine api.openai.com login org-ai password <your token>
+in the `auth-sources' file."
+  :type 'boolean
+  :group 'org-ai)
+
+(when (and org-ai-use-auth-source (not org-ai-openai-api-token))
+  (require 'auth-source)
+  (when-let ((secret (auth-source-pick-first-password :host "api.openai.com" :user "org-ai")))
+    (setq org-ai-openai-api-token secret)))
 
 (defcustom org-ai-image-directory (expand-file-name "org-ai-images/" org-directory)
   "Directory where images are stored."
