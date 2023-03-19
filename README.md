@@ -174,7 +174,7 @@ The PR for [melpa is currently pending](https://github.com/melpa/melpa/pull/8429
 (straight-use-package
  '(org-ai :type git :host github :repo "rksm/org-ai"
           :local-repo "org-ai"
-          :files ("*.el" "README.md")))
+          :files ("*.el" "README.md" "snippets")))
 ```
 
 ### Manual
