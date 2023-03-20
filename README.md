@@ -1,4 +1,4 @@
-# org-ai
+# org-ai [![MELPA](https://melpa.org/packages/org-ai-badge.svg)](https://melpa.org/#/org-ai)
 
 Minor mode for Emacs org-mode that provides access to OpenAI API's. Inside an org-mode buffer you can
 - use ChatGPT to generate text, having full control over system and user prompts ([demo](#chatgpt-in-org-mode))
@@ -166,7 +166,28 @@ The following custom variables can be used to configure the text generation:
 
 ### Melpa
 
-The PR for [melpa is currently pending](https://github.com/melpa/melpa/pull/8429)
+org-ai is on Melpa: https://melpa.org/#/org-ai. If you have added Melpa to your package archives with
+
+```elisp
+(require 'package)
+(add-to-list 'package-archives '("melpa" . "http://melpa.org/packages/") t)
+(package-initialize)
+```
+
+you can install it with:
+
+```elisp
+(use-package org-ai
+  :ensure
+  :commands (org-ai-mode)
+  :custom
+  (org-ai-openai-api-token "<ENTER YOUR API TOKEN HERE>")
+  :init
+  (add-hook 'org-mode-hook #'org-ai-mode)
+  :config
+  ;; if you are using yasnippet and want `ai` snippets
+  (org-ai-install-yasnippets))
+```
 
 ### Straight.el
 
@@ -227,5 +248,3 @@ If this is present, `org-ai-openai-api-token` will be automatically set that val
 ### Is this OpenAI specfic?
 
 Currently yes but once there are more high-quality APIs available I'm planning on supporting those as well.
-
-
