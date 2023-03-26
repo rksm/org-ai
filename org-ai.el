@@ -31,9 +31,10 @@
 
 ;;; Code:
 
+(require 'org-ai-block)
 (require 'org-ai-openai)
 (require 'org-ai-openai-image)
-(require 'org-ai-openai-useful)
+(require 'org-ai-useful)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -41,6 +42,8 @@
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c M-a v") 'org-ai-image-variation)
     (define-key map (kbd "C-c M-a $") 'org-ai-open-account-usage-page)
+    (define-key map (kbd "C-c M-a SPC") 'org-ai-mark-region-at-point)
+    (define-key map (kbd "C-c k") 'org-ai-kill-region-at-point)
     map)
   "Keymap for `org-ai-mode'.")
 

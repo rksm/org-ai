@@ -37,6 +37,8 @@
 (require 'gv)
 (require 'json)
 
+(require 'org-ai-block)
+
 (defcustom org-ai-openai-api-token nil
   "This is your OpenAI API token that you need to specify. You can retrieve it at https://platform.openai.com/account/api-keys."
   :type 'string
@@ -151,57 +153,6 @@ messages."
   (when-let ((context (org-ai-special-block)))
     (org-ai-complete-block)
     t))
-
-(defvar yas-snippet-dirs)
-
-(defun org-ai-install-yasnippets ()
-  "Installs org-ai snippets."
-  (interactive)
-  (let ((snippet-dir (expand-file-name "snippets/"
-                                       (file-name-directory (locate-library "org-ai")))))
-    (unless (boundp 'yas-snippet-dirs)
-      (setq yas-snippet-dirs nil))
-    (add-to-list 'yas-snippet-dirs snippet-dir t)
-    (when (fboundp 'yas-load-directory)
-      (yas-load-directory snippet-dir))))
-
-(defun org-ai-special-block (&optional el)
-  "Are we inside a #+begin_ai...#+end_ai block? `EL' is the current special block."
-  (let (org-element-use-cache) ;; with cache enabled we get weird Cached element is incorrect warnings
-    (let ((context (org-element-context el)))
-      (if (equal 'special-block (org-element-type context))
-          context
-        (when-let ((parent (org-element-property :parent context)))
-          (org-ai-special-block parent))))))
-
-(defun org-ai-get-block-info (&optional context)
-  "Parse the header of #+begin_ai...#+end_ai block.
-`CONTEXT' is the context of the special block. Return an alist of
-key-value pairs."
-  (let* ((context (or context (org-ai-special-block)))
-         (header-start (org-element-property :post-affiliated context))
-         (header-end (org-element-property :contents-begin context))
-         (string (string-trim (buffer-substring-no-properties header-start header-end)))
-         (string (string-trim-left (replace-regexp-in-string "^#\\+begin_ai" "" string))))
-    (org-babel-parse-header-arguments string)))
-
-(defun org-ai-get-block-content (&optional context)
-  "Extracts the text content of the #+begin_ai...#+end_ai block.
-`CONTEXT' is the context of the special block."
-  (let* ((context (or context (org-ai-special-block)))
-         (content-start (org-element-property :contents-begin context))
-         (content-end (org-element-property :contents-end context)))
-    (string-trim (buffer-substring-no-properties content-start content-end))))
-
-(defun org-ai--request-type (info)
-  "Look at the header of the #+begin_ai...#+end_ai block.
-returns the type of request. `INFO' is the alist of key-value
-pairs from `org-ai-get-block-info'."
-  (cond
-   ((not (eql 'x (alist-get :chat info 'x))) 'chat)
-   ((not (eql 'x (alist-get :completion info 'x))) 'completion)
-   ((not (eql 'x (alist-get :image info 'x))) 'image)
-   (t 'chat)))
 
 (defun org-ai-complete-block ()
   "Main command which is normally bound to \\[org-ai-complete-block].
@@ -461,125 +412,6 @@ and the length in chars of the pre-change text replaced by that range."
   (setq org-ai--current-request-callback nil)
   (setq org-ai--url-buffer-last-position nil)
   (setq org-ai--current-chat-role nil))
-
-(defun org-ai--collect-chat-messages (content-string &optional persistant-sys-prompts)
-  "Takes `CONTENT-STRING' and splits it by [SYS]:, [ME]: and [AI]: markers.
-If `PERSISTANT-SYS-PROMPTS' is non-nil, [SYS] prompts are
-intercalated. The [SYS] prompt used is either
-`org-ai-default-chat-system-prompt' or the first [SYS] prompt
-found in `CONTENT-STRING'."
-  (with-temp-buffer
-    (erase-buffer)
-    (insert content-string)
-    (goto-char (point-min))
-
-    (let* (;; collect all positions before [ME]: and [AI]:
-           (sections (cl-loop while (search-forward-regexp "\\[SYS\\]:\\|\\[ME\\]:\\|\\[AI\\]:" nil t)
-                              collect (save-excursion
-                                        (goto-char (match-beginning 0))
-                                        (point))))
-
-           ;; make sure we have from the beginning if there is no first marker
-           (sections (if (not sections)
-                         (list (point-min))
-                       (if (not (= (car sections) (point-min)))
-                           (cons (point-min) sections)
-                         sections)))
-
-           (parts (cl-loop for (start end) on sections by #'cdr
-                           collect (string-trim (buffer-substring-no-properties start (or end (point-max))))))
-
-           ;; if no role is specified, assume [ME]
-           (parts (if (and
-                       (not (string-prefix-p "[SYS]:" (car parts)))
-                       (not (string-prefix-p "[ME]:" (car parts)))
-                       (not (string-prefix-p "[AI]:" (car parts))))
-                      (progn (setf (car parts) (concat "[ME]: " (car parts)))
-                             parts)
-                    parts))
-
-           ;; create (:role :content) list
-           (messages (cl-loop for part in parts
-                              collect (cl-destructuring-bind (type &rest content) (split-string part ":")
-                                        (let ((type (string-trim type))
-                                              (content (string-trim (string-join content ":"))))
-                                          (list :role (cond ((string= type "[SYS]") 'system)
-                                                            ((string= type "[ME]") 'user)
-                                                            ((string= type "[AI]") 'assistant)
-                                                            (t 'assistant))
-                                                :content content)))))
-
-           (messages (cl-remove-if-not (lambda (x) (not (string-empty-p (plist-get x :content)))) messages))
-
-           ;; merge messages with same role
-           (messages (cl-loop with last-role = nil
-                              with result = nil
-                              for (_ role _ content) in messages
-                              if (eql role last-role)
-                              do (let ((last (pop result)))
-                                   (push (list :role role :content (string-join (list (plist-get last :content) content) "\n")) result))
-                              else
-                              do (push (list :role role :content content) result)
-                              do (setq last-role role)
-                              finally return (reverse result)))
-
-           (starts-with-sys-prompt-p (and messages (eql (plist-get (car messages) :role) 'system)))
-
-           (sys-prompt (if starts-with-sys-prompt-p
-                           (plist-get (car messages) :content)
-                         org-ai-default-chat-system-prompt))
-
-           (messages (if persistant-sys-prompts
-                         (cl-loop with result = nil
-                                  for (_ role _ content) in messages
-                                  if (eql role 'assistant)
-                                  do (push (list :role 'assistant :content content) result)
-                                  else if (eql role 'user)
-                                  do (progn
-                                       (push (list :role 'system :content sys-prompt) result)
-                                       (push (list :role 'user :content content) result))
-                                  finally return (reverse result))
-                       messages)))
-
-      (apply #'vector messages))))
-
-;; deal with unspecified prefix
-(cl-assert
- (equal
-  (let ((test-string "\ntesting\n  [ME]: foo bar baz zorrk\nfoo\n[AI]: hello hello[ME]: "))
-    (org-ai--collect-chat-messages test-string))
-  '[(:role user :content "testing\nfoo bar baz zorrk\nfoo")
-    (:role assistant :content "hello hello")]))
-
-;; sys prompt
-(cl-assert
- (equal
-  (let ((test-string "[SYS]: system\n[ME]: user\n[AI]: assistant"))
-    (org-ai--collect-chat-messages test-string))
-  '[(:role system :content "system")
-    (:role user :content "user")
-    (:role assistant :content "assistant")]))
-
-;; sys prompt intercalated
-(cl-assert
- (equal
-  (let ((test-string "[SYS]: system\n[ME]: user\n[AI]: assistant\n[ME]: user"))
-    (org-ai--collect-chat-messages test-string t))
-  '[(:role system :content "system")
-    (:role user :content "user")
-    (:role assistant :content "assistant")
-    (:role system :content "system")
-    (:role user :content "user")]))
-
-;; merge messages with same role
-(cl-assert
- (equal
-  (let ((test-string "[ME]: hello [ME]: world")) (org-ai--collect-chat-messages test-string))
-  '[(:role user :content "hello\nworld")]))
-
-;; (comment
-;;   (with-current-buffer "org-ai-mode-test.org"
-;;    (org-ai--collect-chat-messages (org-ai-get-block-content))))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
