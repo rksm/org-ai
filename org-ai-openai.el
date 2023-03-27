@@ -1,28 +1,5 @@
 ;;; org-ai-openai.el --- OpenAI related functions  -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2023 Robert Krahn
-
-;; Author: Robert Krahn <robert@kra.hn>
-;; URL: https://github.com/rksm/org-ai
-;; Version: 0.2.0
-;; Package-Requires: ((emacs "28.2"))
-
-;; This file is NOT part of GNU Emacs.
-
-;; org-ai.el is free software: you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
-
-;; org-ai.el is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-
-;; You should have received a copy of the GNU General Public License
-;; along with org-ai.el.
-;; If not, see <https://www.gnu.org/licenses/>.
-
 ;;; Commentary:
 
 ;; This file contains the OpenAI API related functions for org-ai.
@@ -106,9 +83,9 @@ messages."
   "Internal var that stores the current request callback.")
 
 (defvar org-ai-after-chat-insertion-hook nil
-  "Hook that is called when a chat response is inserted. Note this
-is alled for every stream response so it will typically only
-contain fragments.")
+  "Hook that is called when a chat response is inserted.
+Note this is alled for every stream response so it will typically
+only contain fragments.")
 
 (defvar org-ai--current-insert-position nil
   "Where to insert the result.")
@@ -135,48 +112,6 @@ contain fragments.")
 ;;    (insert (car (nth n org-ai--debug-data-raw)))
 ;;    (goto-char (cadr (nth n org-ai--debug-data-raw)))
 ;;    (beginning-of-line)))
-
-(defun org-ai-keyboard-quit ()
-  "If there is currently a running request, cancel it."
-  (interactive)
-  (condition-case _
-      (when org-ai--current-request-buffer
-        (org-ai-interrupt-current-request))
-    (error nil)))
-
-(defun org-ai--install-keyboard-quit-advice ()
-  "Cancel current request when `keyboard-quit' is called."
-  (unless (advice-member-p #'org-ai-keyboard-quit 'keyboard-quit)
-    (advice-add 'keyboard-quit :before #'org-ai-keyboard-quit)))
-
-(defun org-ai--uninstall-keyboard-quit-advice ()
-  "Remove the advice that cancels current request when `keyboard-quit' is called."
-  (advice-remove 'keyboard-quit #'org-ai-keyboard-quit))
-
-(defun org-ai-ctrl-c-ctrl-c ()
-  "This is added to `org-ctrl-c-ctrl-c-hook' to enable the `org-mode' integration."
-  (when-let ((context (org-ai-special-block)))
-    (org-ai-complete-block)
-    t))
-
-(defun org-ai-complete-block ()
-  "Main command which is normally bound to \\[org-ai-complete-block].
-When you are inside an #+begin_ai...#+end_ai block, it will send
-the text content to the OpenAI API and replace the block with the
-result."
-  (interactive)
-  (let* ((context (org-ai-special-block))
-         (content (org-ai-get-block-content context))
-         (info (org-ai-get-block-info context))
-         (req-type (org-ai--request-type info))
-         (sys-prompt-for-all-messages (or (not (eql 'x (alist-get :sys-everywhere info 'x)))
-                                          org-ai-default-inject-sys-prompt-for-all-messages)))
-    (cl-case req-type
-      (completion (org-ai-stream-completion :prompt (encode-coding-string content 'utf-8)
-                                            :context context))
-      (image (org-ai-create-and-embed-image context))
-      (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages content org-ai-default-chat-system-prompt sys-prompt-for-all-messages)
-                                   :context context)))))
 
 (cl-defun org-ai-stream-completion (&optional &key prompt messages model max-tokens temperature top-p frequency-penalty presence-penalty context)
   "Start a server-sent event stream.
@@ -312,7 +247,7 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
 								  :temperature temperature
 								  :top-p top-p
 								  :frequency-penalty frequency-penalty
-								  :presence-penalty presence-penalty) 
+								  :presence-penalty presence-penalty)
                                                  'utf-8)))
 
     ;; (message "REQUEST %s" url-request-data)
@@ -423,7 +358,7 @@ and the length in chars of the pre-change text replaced by that range."
   (setq org-ai--current-chat-role nil))
 
 (defun org-ai-open-request-buffer ()
-  ""
+  "A debug helper that opens the url request buffer."
   (interactive)
   (when (buffer-live-p org-ai--current-request-buffer)
     (pop-to-buffer org-ai--current-request-buffer)))
@@ -433,4 +368,3 @@ and the length in chars of the pre-change text replaced by that range."
 (provide 'org-ai-openai)
 
 ;;; org-ai-openai.el ends here
-

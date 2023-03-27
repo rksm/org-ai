@@ -1,4 +1,13 @@
-;;; org-ai-block.el --- A few useful functions and commands -*- lexical-binding: t; -*-
+;;; org-ai-block.el --- org-ai special block helpers -*- lexical-binding: t; -*-
+
+;;; Commentary:
+
+;; Defines functions for dealing with #+begin_ai..#+end_ai special blocks
+
+;;; Code:
+
+(require 'org)
+(require 'org-element)
 
 (defun org-ai-special-block (&optional el)
   "Are we inside a #+begin_ai...#+end_ai block? `EL' is the current special block."
@@ -39,7 +48,7 @@ pairs from `org-ai-get-block-info'."
    (t 'chat)))
 
 (defun org-ai--chat-role-regions ()
-  ""
+  "Splits the special block by role prompts."
   (if-let* ((context (org-ai-special-block))
             (content-start (org-element-property :contents-begin context))
             (content-end (org-element-property :contents-end context)))
@@ -55,7 +64,7 @@ pairs from `org-ai-get-block-info'."
 
 
 (defun org-ai-mark-last-region ()
-  ""
+  "Marks the last prompt in an org-ai block."
   (interactive)
   (when-let* ((regions (reverse (org-ai--chat-role-regions)))
               (last-region-end (pop regions))
@@ -64,7 +73,7 @@ pairs from `org-ai-get-block-info'."
         (push-mark last-region-start t t)))
 
 (defun org-ai-mark-region-at-point ()
-  ""
+  "Marks the prompt at point."
   (interactive)
   (when-let* ((regions (org-ai--chat-role-regions))
               (start (cl-find-if (lambda (x) (>= (point) x)) (reverse regions)))
@@ -80,10 +89,9 @@ pairs from `org-ai-get-block-info'."
       (cons start end))))
 
 (defun org-ai-kill-region-at-point (&optional arg)
-  ""
+  "Kills the prompt at point.
+The numeric `ARG' can be used for killing the last n."
   (interactive "P")
-  (message "%s" arg)
-
   (cl-loop repeat (or arg 1)
            do (when-let ((region (org-ai-mark-region-at-point)))
                 (cl-destructuring-bind (start . end) region

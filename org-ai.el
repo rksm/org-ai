@@ -38,6 +38,57 @@
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+(defun org-ai-ctrl-c-ctrl-c ()
+  "This is added to `org-ctrl-c-ctrl-c-hook' to enable the `org-mode' integration."
+  (when-let ((context (org-ai-special-block)))
+    (org-ai-complete-block)
+    t))
+
+(defun org-ai-complete-block ()
+  "Main command which is normally bound to \\[org-ai-complete-block].
+When you are inside an #+begin_ai...#+end_ai block, it will send
+the text content to the OpenAI API and replace the block with the
+result."
+  (interactive)
+  (let* ((context (org-ai-special-block))
+         (content (org-ai-get-block-content context))
+         (info (org-ai-get-block-info context))
+         (req-type (org-ai--request-type info))
+         (sys-prompt-for-all-messages (or (not (eql 'x (alist-get :sys-everywhere info 'x)))
+                                          org-ai-default-inject-sys-prompt-for-all-messages)))
+    (cl-case req-type
+      (completion (org-ai-stream-completion :prompt (encode-coding-string content 'utf-8)
+                                            :context context))
+      (image (org-ai-create-and-embed-image context))
+      (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages content org-ai-default-chat-system-prompt sys-prompt-for-all-messages)
+                                   :context context)))))
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+;; keyboard quit
+
+(defun org-ai-keyboard-quit ()
+  "If there is currently a running request, cancel it."
+  (interactive)
+  (condition-case _
+      (cond
+       ((region-active-p) nil)
+       ((and rk/org-ai-reading-process (process-live-p rk/org-ai-reading-process))
+        (rk/org-ai-read-stop))
+       (org-ai--current-request-buffer
+         (org-ai-interrupt-current-request)))
+    (error nil)))
+
+(defun org-ai--install-keyboard-quit-advice ()
+  "Cancel current request when `keyboard-quit' is called."
+  (unless (advice-member-p #'org-ai-keyboard-quit 'keyboard-quit)
+    (advice-add 'keyboard-quit :before #'org-ai-keyboard-quit)))
+
+(defun org-ai--uninstall-keyboard-quit-advice ()
+  "Remove the advice that cancels current request when `keyboard-quit' is called."
+  (advice-remove 'keyboard-quit #'org-ai-keyboard-quit))
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
 (defvar org-ai-mode-map (make-sparse-keymap)
   "Keymap for `org-ai-mode'.")
 
