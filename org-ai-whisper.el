@@ -23,6 +23,28 @@
   "")
 
 
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+(defun org-ai-keyboard-quit ()
+  "If there is currently a running request, cancel it."
+  (interactive)
+  (condition-case _
+      (when org-ai--current-request-buffer
+        (org-ai-interrupt-current-request))
+    (error nil)))
+
+(defun org-ai--whisper-install-keyboard-quit-advice ()
+  "Cancel current request when `keyboard-quit' is called."
+  (unless (advice-member-p #'org-ai-keyboard-quit 'keyboard-quit)
+    (advice-add 'keyboard-quit :before #'org-ai-keyboard-quit)))
+
+(defun org-ai--whisper-uninstall-keyboard-quit-advice ()
+  "Remove the advice that cancels current request when `keyboard-quit' is called."
+  (advice-remove 'keyboard-quit #'org-ai-keyboard-quit))
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+
 (defun org-ai--whisper-speech-input (then-do &optional prompt)
   ""
   (lexical-let ((then-do then-do))
@@ -33,25 +55,32 @@
       (whisper--check-install-and-run nil "whisper-start")
       (when prompt (message prompt))
       (while-no-input
-        (let ((key (read-key)))
-          ()
+        (let ((key (read-key-sequence "Press any key to stop recording, cancel with ctrl-g...")))
           (org-ai--whisper-stop-recording
-           (lambda ()
-             (let ((content (with-current-buffer org-ai--whisper-transcription-buffer
-                              (string-trim (buffer-string)))))
-               (funcall then-do content))
-             (kill-buffer org-ai--whisper-transcription-buffer)
-             (setq org-ai--whisper-transcription-buffer nil))))))))
+           (if (or (equal key (kbd "C-g")) (equal key (kbd "ESC")))
+               (lambda ()
+                 (message "canceled recording")
+                 (kill-buffer org-ai--whisper-transcription-buffer)
+                 (setq org-ai--whisper-transcription-buffer nil))
+             (lambda ()
+               (let ((content (with-current-buffer org-ai--whisper-transcription-buffer
+                                (string-trim (buffer-string)))))
+                 (funcall then-do content))
+               (kill-buffer org-ai--whisper-transcription-buffer)
+               (setq org-ai--whisper-transcription-buffer nil)))))))))
 
-(defun org-ai-speech-prompt (&optional output-buffer)
+(defun org-ai-chat-with-speech-everywhere (&optional output-buffer)
   "The same as `org-ai-prompt' but uses speech input."
   (interactive)
   (lexical-let ((output-buffer (or (current-buffer) output-buffer)))
-    (org-ai--whisper-speech-input (lambda (content)
-                                    (org-ai-prompt content output-buffer))
+    (org-ai--whisper-speech-input (lambda (spoken-text)
+                                    (with-current-buffer output-buffer
+                                      (insert spoken-text)
+                                      (insert "\n\n"))
+                                    (org-ai-prompt spoken-text :output-buffer output-buffer))
                                   "Say something then press any key...")))
 
-(defun org-ai-ai-block-speech-prompt (&optional output-buffer)
+(defun org-ai-chat-with-speech (&optional output-buffer)
   "The same as `org-ai-prompt' but uses speech input."
   (interactive)
   (if-let* ((context (org-ai-special-block))
@@ -60,9 +89,10 @@
         (goto-char content-end)
         (backward-char 1)
         (org-ai--whisper-speech-input (lambda (content)
-                                        (insert content))
+                                        (insert content)
+                                        (org-ai-complete-block))
                                       "Say something then press any key..."))
-   (org-ai-speech-prompt)))
+   (org-ai-chat-with-speech-everywhere)))
 
 (provide 'org-ai-whisper)
 
