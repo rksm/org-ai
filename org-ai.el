@@ -38,14 +38,14 @@
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-(defvar org-ai-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c M-a v") 'org-ai-image-variation)
-    (define-key map (kbd "C-c M-a $") 'org-ai-open-account-usage-page)
-    (define-key map (kbd "C-c M-a SPC") 'org-ai-mark-region-at-point)
-    (define-key map (kbd "C-c k") 'org-ai-kill-region-at-point)
-    map)
+(defvar org-ai-mode-map (make-sparse-keymap)
   "Keymap for `org-ai-mode'.")
+
+(let ((map org-ai-mode-map))
+  (define-key map (kbd "C-c M-a v") 'org-ai-image-variation)
+  (define-key map (kbd "C-c M-a $") 'org-ai-open-account-usage-page)
+  (define-key map (kbd "C-c M-a SPC") 'org-ai-mark-region-at-point)
+  (define-key map (kbd "C-c k") 'org-ai-kill-region-at-point))
 
 ;; create a minor-mode for org-mode
 (define-minor-mode org-ai-mode

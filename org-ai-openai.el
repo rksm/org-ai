@@ -105,6 +105,11 @@ messages."
 (defvar org-ai--current-request-callback nil
   "Internal var that stores the current request callback.")
 
+(defvar org-ai-after-chat-insertion-hook nil
+  "Hook that is called when a chat response is inserted. Note this
+is alled for every stream response so it will typically only
+contain fragments.")
+
 (defvar org-ai--current-insert-position nil
   "Where to insert the result.")
 (make-variable-buffer-local 'org-ai--current-insert-position)
@@ -170,7 +175,7 @@ result."
       (completion (org-ai-stream-completion :prompt (encode-coding-string content 'utf-8)
                                             :context context))
       (image (org-ai-create-and-embed-image context))
-      (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages content sys-prompt-for-all-messages)
+      (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages content org-ai-default-chat-system-prompt sys-prompt-for-all-messages)
                                    :context context)))))
 
 (cl-defun org-ai-stream-completion (&optional &key prompt messages model max-tokens temperature top-p frequency-penalty presence-penalty context)
@@ -260,7 +265,8 @@ the response into."
                    ((plist-get delta 'content)
                     (let ((text (plist-get delta 'content)))
                       (when (or org-ai--chat-got-first-response (not (string= (string-trim text) "")))
-                        (insert (decode-coding-string text 'utf-8)))
+                        (insert (decode-coding-string text 'utf-8))
+                        (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text))
                       (setq org-ai--chat-got-first-response t)))
                    ((plist-get delta 'role)
                     (let ((role (plist-get delta 'role)))
@@ -272,16 +278,19 @@ the response into."
                          ((string= role "user")
                           (insert "\n[ME]: "))
                          ((string= role "system")
-                          (insert "\n[SYS]: "))))))))
+                          (insert "\n[SYS]: ")))
+                        (run-hook-with-args 'org-ai-after-chat-insertion-hook 'role role))))))
 
               (setq org-ai--current-insert-position (point))))))
 
     ;; insert new prompt and change position
     (with-current-buffer buffer
       (goto-char org-ai--current-insert-position)
-      (insert "\n\n[ME]: "))))
+      (let ((text "\n\n[ME]: "))
+        (insert text)
+        (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end text)))))
 
-(cl-defun org-ai-stream-request (&optional &key prompt messages callback model max-tokens temperature top-p frequency-penalty presence-penalty)
+(cl-defun org-ai-stream-request (&optional &key prompt messages model max-tokens temperature top-p frequency-penalty presence-penalty callback)
   "Send a request to the OpenAI API.
 `PROMPT' is the query for completions `MESSAGES' is the query for
 chatgpt. `CALLBACK' is the callback function. `MODEL' is the
@@ -412,6 +421,12 @@ and the length in chars of the pre-change text replaced by that range."
   (setq org-ai--current-request-callback nil)
   (setq org-ai--url-buffer-last-position nil)
   (setq org-ai--current-chat-role nil))
+
+(defun org-ai-open-request-buffer ()
+  ""
+  (interactive)
+  (when (buffer-live-p org-ai--current-request-buffer)
+    (pop-to-buffer org-ai--current-request-buffer)))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
