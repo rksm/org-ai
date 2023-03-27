@@ -45,6 +45,15 @@ in the current buffer and select it."
                                                  (goto-char start-pos)))))
                                            (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end "")))))))
 
+(defun org-ai-summarize (start end &optional speak)
+  ""
+  (interactive "r")
+  (let* ((result-buffer (get-buffer-create (generate-new-buffer-name "*summary*")))
+         (text (encode-coding-string (buffer-substring-no-properties start end) 'utf-8))
+         (prompt (format "Summarize the following text:\n\n%s" text)))
+    (pop-to-buffer result-buffer)
+    (toggle-truncate-lines)
+    (org-ai-prompt prompt :output-buffer result-buffer)))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
