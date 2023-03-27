@@ -66,6 +66,8 @@ result."
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; keyboard quit
 
+(defvar rk/org-ai-reading-process)
+
 (defun org-ai-keyboard-quit ()
   "If there is currently a running request, cancel it."
   (interactive)
@@ -73,7 +75,7 @@ result."
       (cond
        ((region-active-p) nil)
        ((and rk/org-ai-reading-process (process-live-p rk/org-ai-reading-process))
-        (rk/org-ai-read-stop))
+        (org-ai-talk-stop))
        (org-ai--current-request-buffer
          (org-ai-interrupt-current-request)))
     (error nil)))

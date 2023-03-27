@@ -1,10 +1,33 @@
-;;; org-ai-whisper.el --- Speech-to-text -*- lexical-binding: t; -*-
+;;; org-ai-whisper.el --- Talk with your AI -*- lexical-binding: t; -*-
+
+;; This file is NOT part of GNU Emacs.
+
+;; org-ai.el is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; org-ai.el is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with org-ai.el.
+;; If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; Speech-to-text-to-speech! Using whisper.el, espeak/greader and on macOS
+;; internal speech synthesis.
+
+;;; Code:
 
 (require 'whisper)
 (require 'org-ai-useful)
 
 (defun org-ai--whisper-stop-recording (then-do)
-  ""
+  "Force current recording to stop and call `THEN-DO'."
   (when (process-live-p whisper--recording-process)
     (interrupt-process whisper--recording-process))
   (run-with-timer
@@ -20,8 +43,7 @@
    then-do))
 
 (defvar org-ai--whisper-transcription-buffer nil
-  "")
-
+  "The buffer into which the speech transcription is written.")
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -46,7 +68,8 @@
 
 
 (defun org-ai--whisper-speech-input (then-do &optional prompt)
-  ""
+  "Record speech and call `THEN-DO' with the transcription as argument.
+If `PROMPT' is non-nil, display it while recording."
   (lexical-let ((then-do then-do))
     (let* ((buffer (or org-ai--whisper-transcription-buffer
                        (get-buffer-create "*org-ai--whisper-transcription-buffer*")))
@@ -70,7 +93,8 @@
                (setq org-ai--whisper-transcription-buffer nil)))))))))
 
 (defun org-ai-chat-with-speech-everywhere (&optional output-buffer)
-  "The same as `org-ai-prompt' but uses speech input."
+  "The same as `ORG-AI-PROMPT' but uses speech input.
+If `OUTPUT-BUFFER' is non-nil, insert the response there."
   (interactive)
   (lexical-let ((output-buffer (or (current-buffer) output-buffer)))
     (org-ai--whisper-speech-input (lambda (spoken-text)
@@ -81,7 +105,8 @@
                                   "Say something then press any key...")))
 
 (defun org-ai-chat-with-speech (&optional output-buffer)
-  "The same as `org-ai-prompt' but uses speech input."
+  "The same as `ORG-AI-PROMPT' but uses speech input.
+If `OUTPUT-BUFFER' is non-nil, insert the response there."
   (interactive)
   (if-let* ((context (org-ai-special-block))
             (content-end (org-element-property :contents-end context)))
@@ -94,6 +119,6 @@
                                       "Say something then press any key..."))
    (org-ai-chat-with-speech-everywhere)))
 
-(provide 'org-ai-whisper)
+(provide 'org-ai-talk)
 
-;;; org-ai-whisper.el ends here
+;;; org-ai-talk.el ends here
