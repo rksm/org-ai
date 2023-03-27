@@ -4,8 +4,8 @@
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Version: 0.1.4
-;; Package-Requires: ((emacs "28.2"))
+;; Version: 0.2.0
+;; Package-Requires: ((emacs "28.2") (greader "0.1"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -66,15 +66,22 @@ result."
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; keyboard quit
 
-(defvar rk/org-ai-reading-process)
+(defvar org-ai-talk--reading-process)
 
 (defun org-ai-keyboard-quit ()
-  "If there is currently a running request, cancel it."
+  "Keyboard quit advice.
+It's designed to \"do the right thing\":
+- If there is an active region, do nothing (normal \\<mapvar> & \\[keyboard-quit] will deactivate it).
+- If there is speech recorded or played, stop it.
+- If there is currently a running openai request, stop it."
   (interactive)
   (condition-case _
       (cond
        ((region-active-p) nil)
-       ((and rk/org-ai-reading-process (process-live-p rk/org-ai-reading-process))
+       ((and (boundp 'org-ai-talk--reading-process)
+             org-ai-talk--reading-process
+             (process-live-p org-ai-talk--reading-process)
+             (fboundp 'org-ai-talk-stop))
         (org-ai-talk-stop))
        (org-ai--current-request-buffer
          (org-ai-interrupt-current-request)))
@@ -98,11 +105,12 @@ result."
   (define-key map (kbd "C-c M-a v") 'org-ai-image-variation)
   (define-key map (kbd "C-c M-a $") 'org-ai-open-account-usage-page)
   (define-key map (kbd "C-c M-a SPC") 'org-ai-mark-region-at-point)
-  (define-key map (kbd "C-c k") 'org-ai-kill-region-at-point))
+  (define-key map (kbd "C-c DEL") 'org-ai-kill-region-at-point)
+  (define-key map (kbd "C-c <backspace>") 'org-ai-kill-region-at-point))
 
 ;; create a minor-mode for org-mode
 (define-minor-mode org-ai-mode
-  "Toggle `org-ai-mode'."
+  "Minor mode for `org-mode' integration with the OpenAI API."
         :init-value nil
         :lighter " org-ai"
         :keymap org-ai-mode-map
@@ -110,6 +118,26 @@ result."
         (add-hook 'org-ctrl-c-ctrl-c-hook #'org-ai-ctrl-c-ctrl-c nil t))
 
 (org-ai--install-keyboard-quit-advice)
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
+(defvar org-ai-global-mode-map (make-sparse-keymap)
+  "Keymap for `org-ai-global-mode'.")
+
+(let ((map org-ai-global-mode-map))
+  (define-key map (kbd "C-c M-a s") 'org-ai-summarize)
+  (define-key map (kbd "C-c M-a p") 'org-ai-prompt)
+  (define-key map (kbd "C-c M-a r") 'org-ai-talk-read-region)
+  (define-key map (kbd "C-c M-a P") 'org-ai-talk-everywhere))
+
+;;;###autoload
+(define-minor-mode org-ai-global-mode
+  "Non `org-mode' specific minor mode for the OpenAI API."
+        :init-value nil
+        :lighter " org-ai-global"
+        :global t
+        :keymap org-ai-global-mode-map
+        :group 'org-ai)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
