@@ -5,7 +5,12 @@
 - Support for speech input/output. Chat with your AI!
 - Some useful commands useful in other contexts as well:
     - `org-ai-summarize` will print a summarization of the currently selected text.
+    - `org-ai-explain-code` will explain the code selected code.
     - `org-ai-prompt` will prompt the user for a text and then print the AI's response.
+- Some utilities useful within org-ai blocks:
+    - `org-ai-mark-last-region` will mark the last chat part of an `#+begin_ai..#+end_ai` block.
+    - `org-ai-mark-region-at-point` will mark the region at point.
+    - `org-ai-kill-region-at-point` (`C-c <backspace>`) will remove the chat part at point.
 
 ## [0.1.4] - 2023-03-17
 ### Added
