@@ -70,6 +70,12 @@ n`SELECT-OUTPUT' is whether to mark the output."
                                                      (goto-char start-pos))))))
                                            (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end "")))))))
 
+
+(defcustom org-ai-summarize-prompt "Summarize the following text:\n\n%s"
+  "The template to use for `org-ai-summarize'."
+  :type 'string
+  :group 'org-ai)
+
 (defun org-ai-summarize (start end)
   "Ask ChatGPT for a summary of the marked text.
 `START' is the buffer position of the start of the text to summarize.
@@ -77,9 +83,26 @@ n`SELECT-OUTPUT' is whether to mark the output."
   (interactive "r")
   (let* ((result-buffer (get-buffer-create (generate-new-buffer-name "*summary*")))
          (text (encode-coding-string (buffer-substring-no-properties start end) 'utf-8))
-         (prompt (format "Summarize the following text:\n\n%s" text)))
-    (pop-to-buffer result-buffer)
-    (toggle-truncate-lines)
+         (prompt (format org-ai-summarize-prompt text)))
+    (display-buffer result-buffer)
+    (with-current-buffer result-buffer (toggle-truncate-lines -1))
+    (org-ai-prompt prompt :output-buffer result-buffer)))
+
+(defcustom org-ai-explain-code-prompt "The following shows a source code snippet. Explain what it does and mention potential issues and improvements:\n\n%s"
+  "The template to use for `org-ai-explain-code'."
+  :type 'string
+  :group 'org-ai)
+
+(defun org-ai-explain-code (start end)
+  "Ask ChatGPT explain a code snippet.
+`START' is the buffer position of the start of the code snippet.
+`END' is the buffer position of the end of the code snippet."
+  (interactive "r")
+  (let* ((result-buffer (get-buffer-create (generate-new-buffer-name "*what-the-code*")))
+         (text (encode-coding-string (buffer-substring-no-properties start end) 'utf-8))
+         (prompt (format org-ai-explain-code-prompt text)))
+    (display-buffer result-buffer)
+    (with-current-buffer result-buffer (toggle-truncate-lines -1))
     (org-ai-prompt prompt :output-buffer result-buffer)))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

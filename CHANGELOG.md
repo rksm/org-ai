@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0] - 2023-03-28
+### Added
+- Support for speech input/output. Chat with your AI!
+- Some useful commands useful in other contexts as well:
+    - `org-ai-summarize` will print a summarization of the currently selected text.
+    - `org-ai-prompt` will prompt the user for a text and then print the AI's response.
+
 ## [0.1.4] - 2023-03-17
 ### Added
 - Support for retrieving `org-ai-openai-api-token` from `authinfo` file.

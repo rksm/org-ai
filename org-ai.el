@@ -79,12 +79,12 @@ It's designed to \"do the right thing\":
       (cond
        ((region-active-p) nil)
        ((and (boundp 'org-ai-talk--reading-process)
+             (fboundp 'org-ai-talk-stop)
              org-ai-talk--reading-process
-             (process-live-p org-ai-talk--reading-process)
-             (fboundp 'org-ai-talk-stop))
+             (process-live-p org-ai-talk--reading-process))
         (org-ai-talk-stop))
        (org-ai--current-request-buffer
-         (org-ai-interrupt-current-request)))
+        (org-ai-interrupt-current-request)))
     (error nil)))
 
 (defun org-ai--install-keyboard-quit-advice ()

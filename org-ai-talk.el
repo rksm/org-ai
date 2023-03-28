@@ -98,35 +98,45 @@ https://github.com/natrys/whisper.el for instructions."
 (defvar org-ai-talk--reading-process nil)
 (defvar org-ai-talk--is-done nil)
 
+(defun org-ai-talk--read-buffer-alive-p ()
+  "Return t if `org-ai-talk--read-buffer' is alive."
+  (and org-ai-talk--read-buffer (buffer-live-p org-ai-talk--read-buffer)))
+
+(defun org-ai-talk--ensure-read-buffer ()
+  "Ensure `org-ai-talk--read-buffer' is set and return it."
+  (when (not (org-ai-talk--read-buffer-alive-p))
+    (message "creating buffer for speech synthesis")
+    (setq org-ai-talk--read-buffer (get-buffer-create "*org-ai-talk*")))
+  org-ai-talk--read-buffer)
+
 (defun org-ai-talk--speak-inserted-text (type content)
   "Used with `org-ai-after-chat-insertion-hook'.
 When installed, will speak the text that we get back from the AI.
 
 `TYPE' is either 'role or 'text or 'end.
 `CONTENT' is the text that was inserted."
-  (unless org-ai-talk--read-buffer
-    (setq org-ai-talk--read-buffer (get-buffer-create "*org-ai-talk*")))
-
   (cl-case type
-    ('role
+    (role
      (setq org-ai-talk--current-insertion-point 0)
      (setq org-ai-talk--is-done nil)
-     (with-current-buffer org-ai-talk--read-buffer
+     (with-current-buffer (org-ai-talk--ensure-read-buffer)
        (erase-buffer)))
 
-    ('text
-     (with-current-buffer org-ai-talk--read-buffer
-       (save-excursion (goto-char org-ai-talk--current-insertion-point)
-                       (insert content)
-                       (setq org-ai-talk--current-insertion-point (point)))
-       (when (and (string-match-p "\\." content) (not org-ai-talk--reading-process))
-         (org-ai-talk--read-next-sentence (lambda ()
-                                            (when org-ai-talk--is-done
-                                              (with-current-buffer org-ai-talk--read-buffer
-                                                (org-ai-talk-read-region (point) (point-max)))))))))
+    (text
+     (if (org-ai-talk--read-buffer-alive-p)
+         (with-current-buffer org-ai-talk--read-buffer
+           (save-excursion (goto-char org-ai-talk--current-insertion-point)
+                           (insert content)
+                           (setq org-ai-talk--current-insertion-point (point)))
+           (when (and (not org-ai-talk--reading-process) (string-match-p "\\.\\|!\\|\\?" content))
+             (org-ai-talk--read-next-sentence (lambda ()
+                                                (when org-ai-talk--is-done
+                                                  (with-current-buffer org-ai-talk--read-buffer
+                                                    (org-ai-talk-read-region (point) (point-max))))))))
+       (setq org-ai-talk--is-done t)))
 
-    ('end
-     (unless org-ai-talk--reading-process
+    (end
+     (when (and (org-ai-talk--read-buffer-alive-p) (not org-ai-talk--reading-process))
        (with-current-buffer org-ai-talk--read-buffer
          (org-ai-talk-read-region (point) (point-max))))
      (setq org-ai-talk--is-done t))))
@@ -139,11 +149,14 @@ If `CALLBACK' is non-nil, call it when done."
   (when (and org-ai-talk--reading-process (process-live-p org-ai-talk--reading-process))
     (warn "already reading aloud")
     (kill-process org-ai-talk--reading-process))
+  (org-ai-talk--ensure-read-buffer)
   (cond
-   ((or org-ai-talk-use-greader (string-equal system-type "darwin"))
+   (org-ai-talk-use-greader
     (org-ai-talk--read-region-greader from to callback))
+   ((string-equal system-type "darwin")
+    (org-ai-talk--read-region-macos from to callback))
    (t
-    (org-ai-talk--read-region-macos from to callback))))
+    (error "No speech synthesis available"))))
 
 (defun org-ai-talk--read-region-greader (from to &optional callback)
   "Read the region from `FROM' to `TO'.
@@ -179,7 +192,7 @@ If `CALLBACK' is non-nil, call it when done."
   (run-with-idle-timer 0.5
                        nil
                        (lambda (callback)
-                         (if (and greader-synth-process (process-live-p greader-synth-process))
+                         (if (and org-ai-talk--reading-process (process-live-p org-ai-talk--reading-process))
                              (org-ai-talk--wait-for-greader callback)
                            (setq org-ai-talk--reading-process nil)
                            (when callback (funcall callback))))
@@ -188,13 +201,17 @@ If `CALLBACK' is non-nil, call it when done."
 (defun org-ai-talk--read-next-sentence (&optional callback)
   "Read the next sentence.
 If `CALLBACK' is non-nil, call it when done."
-  (org-ai-talk-read-region (point) (save-excursion (forward-sentence) (point)) callback))
+  (org-ai-talk-read-region (point) (progn (forward-sentence) (point)) callback))
 
 (defun org-ai-talk-stop ()
   "Stop recording and synthesis."
   (interactive)
   (when (and org-ai-talk--reading-process (process-live-p org-ai-talk--reading-process))
     (delete-process org-ai-talk--reading-process))
+
+  (when (org-ai-talk--read-buffer-alive-p)
+    (kill-buffer org-ai-talk--read-buffer)
+    (setq org-ai-talk--read-buffer nil))
 
   (when org-ai-talk-use-greader
     (condition-case _
@@ -236,6 +253,25 @@ If `OUTPUT-BUFFER' is non-nil, insert the response there."
              (org-ai-complete-block)))
          "Say something then press any key..."))
     (org-ai-talk-everywhere)))
+
+(defvar org-ai-after-chat-insertion-hook)
+
+(defun org-ai-talk-enable ()
+  "Speak text coming from the AI."
+  (interactive)
+  (add-hook 'org-ai-after-chat-insertion-hook #'org-ai-talk--speak-inserted-text))
+
+(defun org-ai-talk-disable ()
+  "Disable speaking text coming from the AI."
+  (interactive)
+  (remove-hook 'org-ai-after-chat-insertion-hook #'org-ai-talk--speak-inserted-text))
+
+(defun org-ai-talk-toggle ()
+  "Toggle speaking text coming from the AI."
+  (interactive)
+  (if (member 'org-ai-talk--speak-inserted-text org-ai-after-chat-insertion-hook)
+      (org-ai-talk-disable)
+    (org-ai-talk-enable)))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
