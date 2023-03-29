@@ -46,6 +46,7 @@ https://github.com/natrys/whisper.el for instructions."
   (if (fboundp 'whisper--check-install-and-run)
       (let* ((buffer (or org-ai-talk--whisper-transcription-buffer
                          (get-buffer-create "*org-ai-talk--whisper-transcription-buffer*"))))
+        ;; (pop-to-buffer buffer)
         (setq whisper--point-buffer buffer)
         (setq org-ai-talk--whisper-transcription-buffer buffer)
         (whisper--check-install-and-run nil "whisper-start")
@@ -87,6 +88,18 @@ https://github.com/natrys/whisper.el for instructions."
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; synthesizing speech
 
+(defcustom org-ai-talk-say-words-per-minute nil
+  "Speech rate passed to the `say' macOS cli command (`-r' flag).
+Nil means use the default rate."
+  :type 'integer
+  :group 'org-ai-talk)
+
+(defcustom org-ai-talk-say-voice nil
+  "Voice passed to the `say' macOS cli command (`-v' flag).
+Nil means use the default voice."
+  :type 'integer
+  :group 'org-ai-talk)
+
 (defcustom org-ai-talk-use-greader
   (not (string-equal system-type "darwin"))
   "Use greader / espeak for speech synthesis?"
@@ -121,14 +134,14 @@ When installed, will speak the text that we get back from the AI.
      (setq org-ai-talk--is-done nil)
      (with-current-buffer (org-ai-talk--ensure-read-buffer)
        (erase-buffer)))
-
     (text
      (if (org-ai-talk--read-buffer-alive-p)
          (with-current-buffer org-ai-talk--read-buffer
            (save-excursion (goto-char org-ai-talk--current-insertion-point)
                            (insert content)
                            (setq org-ai-talk--current-insertion-point (point)))
-           (when (and (not org-ai-talk--reading-process) (string-match-p "\\.\\|!\\|\\?" content))
+           ;; start speaking for sentences
+           (when (and (not org-ai-talk--reading-process) (string-match-p "\\.\\|!\\|\\?\\|:\\|," content))
              (org-ai-talk--read-next-sentence (lambda ()
                                                 (when org-ai-talk--is-done
                                                   (with-current-buffer org-ai-talk--read-buffer
@@ -175,15 +188,18 @@ If `CALLBACK' is non-nil, call it when done.
 For MacOS only, uses the `say' cli utility."
   (let ((buf (current-buffer)))
     (if-let ((text (buffer-substring-no-properties from to)))
-        (setq org-ai-talk--reading-process
-              (make-process :name "*org-ai-talker*"
-                            :command (list "say" text)
-                            :sentinel (lambda (&optional _process event)
-                                        (when (string= event "finished\n")
-                                          (setq org-ai-talk--reading-process nil)
-                                          (with-current-buffer buf (goto-char to))
-                                          (when callback
-                                            (funcall callback))))))
+        (let* ((voice-param (if org-ai-talk-say-voice (list "-v" org-ai-talk-say-voice) nil))
+               (rate-param (if org-ai-talk-say-words-per-minute (list "-r" (number-to-string org-ai-talk-say-words-per-minute)) nil))
+               (cmd (append '("say") voice-param rate-param (list text))))
+          (setq org-ai-talk--reading-process
+                (make-process :name "*org-ai-talker*"
+                              :command cmd
+                              :sentinel (lambda (&optional _process event)
+                                          (when (string= event "finished\n")
+                                            (setq org-ai-talk--reading-process nil)
+                                            (with-current-buffer buf (goto-char to))
+                                            (when callback
+                                              (funcall callback)))))))
       (warn "no sentence"))))
 
 (defun org-ai-talk--wait-for-greader (&optional callback)
@@ -259,12 +275,14 @@ If `OUTPUT-BUFFER' is non-nil, insert the response there."
 (defun org-ai-talk-enable ()
   "Speak text coming from the AI."
   (interactive)
-  (add-hook 'org-ai-after-chat-insertion-hook #'org-ai-talk--speak-inserted-text))
+  (add-hook 'org-ai-after-chat-insertion-hook #'org-ai-talk--speak-inserted-text)
+  (message "org-ai speech output activated"))
 
 (defun org-ai-talk-disable ()
   "Disable speaking text coming from the AI."
   (interactive)
-  (remove-hook 'org-ai-after-chat-insertion-hook #'org-ai-talk--speak-inserted-text))
+  (remove-hook 'org-ai-after-chat-insertion-hook #'org-ai-talk--speak-inserted-text)
+  (message "org-ai speech output deactivated"))
 
 (defun org-ai-talk-toggle ()
   "Toggle speaking text coming from the AI."
