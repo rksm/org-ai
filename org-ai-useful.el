@@ -22,6 +22,8 @@
 
 ;;; Code:
 
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+;; snippet helpers
 (defvar yas-snippet-dirs)
 
 (defun org-ai-install-yasnippets ()
@@ -35,12 +37,16 @@
     (when (fboundp 'yas-load-directory)
       (yas-load-directory snippet-dir))))
 
-(cl-defun org-ai-prompt (prompt &optional &key sys-prompt output-buffer select-output)
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+;; just prompt
+
+(cl-defun org-ai-prompt (prompt &optional &key sys-prompt output-buffer select-output callback)
   "Prompt for a gpt input, insert the response in current buffer.
 `PROMPT' is the prompt to use.
 `SYS-PROMPT' is the system prompt to use.
 `OUTPUT-BUFFER' is the buffer to insert the response in.
-n`SELECT-OUTPUT' is whether to mark the output."
+`SELECT-OUTPUT' is whether to mark the output.
+`CALLBACK' is a function to call after the response is inserted."
   (interactive
    (list (read-string "What's up? ")))
   (let ((output-buffer (or output-buffer (current-buffer)))
@@ -68,10 +74,80 @@ n`SELECT-OUTPUT' is whether to mark the output."
                                                    (with-current-buffer output-buffer
                                                      (set-mark (point))
                                                      (goto-char start-pos))))))
-                                           (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end "")))))))
+                                           (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end "")
+                                           (when callback (with-current-buffer output-buffer (funcall callback)))))))))
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+;; org-ai-on-region
+
+(cl-defun org-ai--on-region-internal (start end text-prompt-fn &optional &key output-buffer show-output-buffer callback)
+  "Get the currently selected text, create a prompt, insert the response in `BUFFER-NAME'.
+`TEXT-PROMPT-FN' is a function that takes the selected text as argument and returns a prompt.
+`START' is the buffer position of the region.
+`END' is the buffer position of the region.
+`OUTPUT-BUFFER' is the name or the buffer to insert the response in.
+`CALLBACK' is a function to call after the response is inserted."
+  (let* ((text (encode-coding-string (buffer-substring-no-properties start end) 'utf-8))
+         (full-prompt (funcall text-prompt-fn text))
+         (output-buffer (get-buffer-create (or output-buffer "*org-ai-on-region*"))))
+    (with-current-buffer output-buffer
+      (erase-buffer)
+      (toggle-truncate-lines -1)
+      (when show-output-buffer
+        (display-buffer output-buffer)))
+    (org-ai-prompt full-prompt :output-buffer output-buffer :callback callback)))
 
 
-(defcustom org-ai-summarize-prompt "Summarize the following text:\n\n%s"
+(defun org-ai--insert-quote-prefix (str)
+  "Prepend all lines in `STR' with '>'."
+  (replace-regexp-in-string "^" "> " str))
+
+(defun org-ai--prompt-on-region-create-text-prompt (user-input text)
+  "Create a prompt for `org-ai-prompt-on-region'.
+`USER-INPUT' is the user input like a question to answer.
+`TEXT' is the text of the region."
+  (format "In the following I will show you a question and then a text. I want you to answer that question based on the text. Use the text as primary source but also add any external information you think is relevant.
+
+Here is the question:
+%s
+
+Here is the text:
+%s
+" (org-ai--insert-quote-prefix user-input) (org-ai--insert-quote-prefix text)))
+
+(defun org-ai--prompt-on-region-create-code-prompt (user-input text)
+  "Create a prompt for `org-ai-prompt-on-region'.
+`USER-INPUT' is the user input like a question to answer.
+`TEXT' is the code of the region."
+  (format "In the following I will show you a question and then a code snippet. I want you to answer that question based on the code snippet.
+
+Here is the question:
+%s
+
+Here is the code snippet:
+%s
+" (org-ai--insert-quote-prefix user-input) (org-ai--insert-quote-prefix text)))
+
+(defun org-ai-prompt-on-region (start end question &optional buffer-name text-kind)
+  "Ask ChatGPT to answer a question based on the selected text.
+`QUESTION' is the question to answer.
+`START' is the buffer position of the region.
+`END' is the buffer position of the region.
+`BUFFER-NAME' is the name of the buffer to insert the response in.
+`TEXT-KIND' is either the symbol 'text or 'code. If nil, it will be guessed from the current major mode."
+  (interactive "r \nMWhat do you want to know? ")
+  (let* ((text-kind (or text-kind (cond ((derived-mode-p 'prog-mode) 'code)
+                                        ((derived-mode-p 'text-mode) 'text)
+                                        (t 'text))))
+         (text-prompt-fn (pcase text-kind
+                           ('text (lambda (text) (org-ai--prompt-on-region-create-text-prompt question text)))
+                           ('code (lambda (text) (org-ai--prompt-on-region-create-code-prompt question text)))
+                           (_ (error "Invalid text-kind: %s" text-kind))))
+         (result-buffer (get-buffer-create (or buffer-name "*org-ai-on-region*"))))
+    (display-buffer-same-window result-buffer nil)
+    (org-ai--on-region-internal start end text-prompt-fn :output-buffer result-buffer)))
+
+(defcustom org-ai-summarize-prompt "Summarize this text."
   "The template to use for `org-ai-summarize'."
   :type 'string
   :group 'org-ai)
@@ -81,14 +157,9 @@ n`SELECT-OUTPUT' is whether to mark the output."
 `START' is the buffer position of the start of the text to summarize.
 `END' is the buffer position of the end of the text to summarize."
   (interactive "r")
-  (let* ((result-buffer (get-buffer-create (generate-new-buffer-name "*summary*")))
-         (text (encode-coding-string (buffer-substring-no-properties start end) 'utf-8))
-         (prompt (format org-ai-summarize-prompt text)))
-    (display-buffer result-buffer)
-    (with-current-buffer result-buffer (toggle-truncate-lines -1))
-    (org-ai-prompt prompt :output-buffer result-buffer)))
+  (org-ai-prompt-on-region start end org-ai-summarize-prompt))
 
-(defcustom org-ai-explain-code-prompt "The following shows a source code snippet. Explain what it does and mention potential issues and improvements:\n\n%s"
+(defcustom org-ai-explain-code-prompt "The following shows a source code snippet. Explain what it does and mention potential issues and improvements."
   "The template to use for `org-ai-explain-code'."
   :type 'string
   :group 'org-ai)
@@ -98,12 +169,85 @@ n`SELECT-OUTPUT' is whether to mark the output."
 `START' is the buffer position of the start of the code snippet.
 `END' is the buffer position of the end of the code snippet."
   (interactive "r")
-  (let* ((result-buffer (get-buffer-create (generate-new-buffer-name "*what-the-code*")))
-         (text (encode-coding-string (buffer-substring-no-properties start end) 'utf-8))
-         (prompt (format org-ai-explain-code-prompt text)))
-    (display-buffer result-buffer)
-    (with-current-buffer result-buffer (toggle-truncate-lines -1))
-    (org-ai-prompt prompt :output-buffer result-buffer)))
+  (org-ai-prompt-on-region start end org-ai-explain-code-prompt))
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+;; refactor code
+
+(defun org-ai-refactor-code (start end how)
+  "Ask ChatGPT refactor a piece of code.
+`START' is the buffer position of the start of the code snippet.
+`END' is the buffer position of the end of the code snippet.
+`HOW' is a string describing how the code should be modified."
+  (interactive "r \nMHow should the code be modified? ")
+  (let ((text-prompt-fn (lambda (code) (format "
+In the following I will show you an instruction and then a code snippet. I want you to modify the code snippet based on the instruction. Only output the modified code. Do not include any explanation.
+
+Here is the instruction:
+%s
+
+Here is the code snippet:
+%s
+" how (org-ai--insert-quote-prefix code))))
+        (buffer-with-selected-code (current-buffer))
+        (output-buffer (get-buffer-create "*org-ai-refactor*")))
+    (org-ai--on-region-internal start end text-prompt-fn
+                                :output-buffer output-buffer
+                                :show-output-buffer t
+                                :callback (lambda ()
+                                            (progn
+                                              (with-current-buffer output-buffer
+                                                ;; ensure buffer ends with a newline
+                                                (end-of-buffer)
+                                                (unless (eq (char-before) ?\n) (insert ?\n))
+                                                (mark-whole-buffer))
+                                              (org-ai--diff-and-patch-buffers buffer-with-selected-code output-buffer))))))
+
+(defun org-ai--diff-and-patch-buffers (buffer-a buffer-b)
+  "Will diff `BUFFER-A' and `BUFFER-B' and and offer to patch'.
+`BUFFER-A' is the first buffer.
+`BUFFER-B' is the second buffer.
+Will open the diff buffer and return it."
+  (let* ((reg-A (with-current-buffer buffer-a
+                  (cons (region-beginning) (region-end))))
+         (reg-B (with-current-buffer buffer-b
+                  (cons (region-beginning) (region-end))))
+         (text-a (with-current-buffer buffer-a
+                   (buffer-substring-no-properties (car reg-A) (cdr reg-A))))
+         (text-b (with-current-buffer buffer-b
+                   (buffer-substring-no-properties (car reg-B) (cdr reg-B))))
+         (diff-buffer (org-ai--diff-strings text-a text-b)))
+    (when (y-or-n-p "Patch?")
+      (pop-to-buffer buffer-a)
+      (delete-region (car reg-A) (cdr reg-A))
+      (insert text-b))
+    (kill-buffer diff-buffer)
+    (kill-buffer buffer-b)
+    (pop-to-buffer buffer-a)))
+
+;; (let ((buffer-with-selected-code (current-buffer))
+;;       (output-buffer (get-buffer-create "*org-ai-refactor*")))
+;;   (with-current-buffer output-buffer
+;;     ;; ensure buffer ends with a newline
+;;     (end-of-buffer)
+;;     (unless (eq (char-before) ?\n) (insert ?\n))
+;;     (mark-whole-buffer))
+;;   (org-ai--diff-and-patch-buffers buffer-with-selected-code output-buffer))
+
+(defun org-ai--diff-strings (string-a string-b)
+  "Will create a unified diff of the two strings.
+`STRING-A' is the first string.
+`STRING-B' is the second string.
+Will open the diff buffer and return it."
+  (with-temp-buffer
+    (insert string-a)
+    (let ((diff-switches "-u")
+          (temp-buffer-a (current-buffer)))
+      (with-temp-buffer
+        (insert string-b)
+        (let* ((win (diff temp-buffer-a (current-buffer) nil t))
+               (diff-buffer (window-buffer win)))
+          diff-buffer)))))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
