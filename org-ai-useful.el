@@ -26,6 +26,21 @@
 ;; snippet helpers
 (defvar yas-snippet-dirs)
 
+(defvar org-ai-output-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "q") (lambda () (interactive) (kill-buffer-and-window)))
+    map)
+  "Keymap for `org-ai-output-mode'.")
+
+(define-minor-mode org-ai-output-mode
+  "Minor mode for buffers showing org-ai output."
+  :init-value nil
+  :keymap org-ai-output-mode-map
+  :group 'org-ai
+  (read-only-mode 1))
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+
 (defun org-ai-install-yasnippets ()
   "Installs org-ai snippets."
   (interactive)
@@ -40,6 +55,12 @@
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; just prompt
 
+(defcustom org-ai-talk-spoken-input nil
+  "Whether to use speech input for `org-ai-prompt' and `org-ai-talk-on-region' commands.
+See `org-ai-talk' for the details and implementation."
+  :type 'boolean
+  :group 'org-ai)
+
 (cl-defun org-ai-prompt (prompt &optional &key sys-prompt output-buffer select-output callback)
   "Prompt for a gpt input, insert the response in current buffer.
 `PROMPT' is the prompt to use.
@@ -48,34 +69,45 @@
 `SELECT-OUTPUT' is whether to mark the output.
 `CALLBACK' is a function to call after the response is inserted."
   (interactive
-   (list (read-string "What's up? ")))
-  (let ((output-buffer (or output-buffer (current-buffer)))
-        (start-pos (point)))
-    (let* ((sys-input (if sys-prompt (format "[SYS]: %s\n" sys-prompt)))
-           (input (format "%s\n[ME]: %s" sys-input prompt)))
-      (org-ai-stream-request :messages (org-ai--collect-chat-messages input)
-                             :model org-ai-default-chat-model
-                             :callback (lambda (response)
-                                         (if-let* ((choices (or (alist-get 'choices response)
-                                                                (plist-get response 'choices)))
-                                                   (choice (aref choices 0)))
-                                             (let ((delta (plist-get choice 'delta)))
-                                               (cond
-                                                ((plist-get delta 'role)
-                                                 (let ((role (plist-get delta 'role)))
-                                                   (run-hook-with-args 'org-ai-after-chat-insertion-hook 'role role)))
-                                                ((plist-get delta 'content)
-                                                 (let ((text (plist-get delta 'content)))
-                                                   (with-current-buffer output-buffer
-                                                     (insert (decode-coding-string text 'utf-8)))
-                                                   (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text)))
-                                                ((plist-get choice 'finish_reason)
-                                                 (when select-output
-                                                   (with-current-buffer output-buffer
-                                                     (set-mark (point))
-                                                     (goto-char start-pos))))))
-                                           (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end "")
-                                           (when callback (with-current-buffer output-buffer (funcall callback)))))))))
+   (list (unless org-ai-talk-spoken-input (read-string "What do you want to know? " nil 'org-ai-prompt-history))))
+
+  ;; if speech input is enabled, transcribe it then call again
+  (if (and org-ai-talk-spoken-input (null prompt))
+      (org-ai-talk--record-and-transcribe-speech (lambda (spoken-text)
+                                                   (message "org-ai-prompt: %s" spoken-text)
+                                                   (org-ai-prompt spoken-text
+                                                                  :output-buffer output-buffer
+                                                                  :select-output select-output
+                                                                  :callback callback))
+                                                 "What do you want to know?")
+
+    (let ((output-buffer (or output-buffer (current-buffer)))
+          (start-pos (point)))
+      (let* ((sys-input (if sys-prompt (format "[SYS]: %s\n" sys-prompt)))
+             (input (format "%s\n[ME]: %s" sys-input prompt)))
+        (org-ai-stream-request :messages (org-ai--collect-chat-messages input)
+                               :model org-ai-default-chat-model
+                               :callback (lambda (response)
+                                           (if-let* ((choices (or (alist-get 'choices response)
+                                                                  (plist-get response 'choices)))
+                                                     (choice (aref choices 0)))
+                                               (let ((delta (plist-get choice 'delta)))
+                                                 (cond
+                                                  ((plist-get delta 'role)
+                                                   (let ((role (plist-get delta 'role)))
+                                                     (run-hook-with-args 'org-ai-after-chat-insertion-hook 'role role)))
+                                                  ((plist-get delta 'content)
+                                                   (let ((text (plist-get delta 'content)))
+                                                     (with-current-buffer output-buffer
+                                                       (insert (decode-coding-string text 'utf-8)))
+                                                     (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text)))
+                                                  ((plist-get choice 'finish_reason)
+                                                   (when select-output
+                                                     (with-current-buffer output-buffer
+                                                       (set-mark (point))
+                                                       (goto-char start-pos))))))
+                                             (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end "")
+                                             (when callback (with-current-buffer output-buffer (funcall callback))))))))))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; org-ai-on-region
@@ -96,8 +128,7 @@ argument and returns a prompt.
       (erase-buffer)
       (toggle-truncate-lines -1)
       (when show-output-buffer
-        (when (= (length (window-list)) 1) (split-window-horizontally))
-        (display-buffer-use-some-window output-buffer nil)))
+        (display-buffer output-buffer)))
     (org-ai-prompt full-prompt :output-buffer output-buffer :callback callback)))
 
 
@@ -140,18 +171,29 @@ Here is the code snippet:
 `TEXT-KIND' is either the symbol 'text or 'code. If nil, it will
 be guessed from the current major mode."
   (interactive
-   (let ((question (read-string "What do you want to know? " nil 'org-ai-on-region-history)))
+   (let ((question (unless org-ai-talk-spoken-input (read-string "What do you want to know? " nil 'org-ai-on-region-history))))
      (list (region-beginning) (region-end) question)))
-  (let* ((text-kind (or text-kind (cond ((derived-mode-p 'prog-mode) 'code)
-                                        ((derived-mode-p 'text-mode) 'text)
-                                        (t 'text))))
-         (text-prompt-fn (pcase text-kind
-                           ('text (lambda (text) (org-ai--prompt-on-region-create-text-prompt question text)))
-                           ('code (lambda (text) (org-ai--prompt-on-region-create-code-prompt question text)))
-                           (_ (error "Invalid text-kind: %s" text-kind))))
-         (result-buffer (get-buffer-create (or buffer-name "*org-ai-on-region*"))))
-    (display-buffer-same-window result-buffer nil)
-    (org-ai--on-region-internal start end text-prompt-fn :output-buffer result-buffer)))
+
+  ;; if speech input is enabled, transcribe it then call again
+  (if (and org-ai-talk-spoken-input (null question))
+      (org-ai-talk--record-and-transcribe-speech (lambda (spoken-text)
+                                                   (message "org-ai-on-region: %s" spoken-text)
+                                                   (org-ai-on-region start end spoken-text buffer-name text-kind))
+                                                 "What do you want to know?")
+
+
+    (let* ((text-kind (or text-kind (cond ((derived-mode-p 'prog-mode) 'code)
+                                          ((derived-mode-p 'text-mode) 'text)
+                                          (t 'text))))
+           (text-prompt-fn (pcase text-kind
+                             ('text (lambda (text) (org-ai--prompt-on-region-create-text-prompt question text)))
+                             ('code (lambda (text) (org-ai--prompt-on-region-create-code-prompt question text)))
+                             (_ (error "Invalid text-kind: %s" text-kind))))
+           (output-buffer (get-buffer-create (or buffer-name "*org-ai-on-region*"))))
+      (org-ai--on-region-internal start end text-prompt-fn
+                                  :output-buffer output-buffer
+                                  :show-output-buffer t
+                                  :callback (lambda () (org-ai-output-mode))))))
 
 (defcustom org-ai-summarize-prompt "Summarize this text."
   "The template to use for `org-ai-summarize'."
@@ -185,8 +227,19 @@ be guessed from the current major mode."
 `START' is the buffer position of the start of the code snippet.
 `END' is the buffer position of the end of the code snippet.
 `HOW' is a string describing how the code should be modified."
-  (interactive "r \nMHow should the code be modified? ")
-  (let ((text-prompt-fn (lambda (code) (format "
+
+  (interactive
+   (let ((how (unless org-ai-talk-spoken-input (read-string "How should the code be modified? " nil 'org-ai-on-region-history))))
+     (list (region-beginning) (region-end) how)))
+
+  ;; if speech input is enabled, transcribe it then call again
+  (if (and org-ai-talk-spoken-input (null how))
+      (org-ai-talk--record-and-transcribe-speech (lambda (spoken-text)
+                                                   (message "org-ai-refactor-code: %s" spoken-text)
+                                                   (org-ai-refactor-code start end spoken-text))
+                                                 "How should the code be modified?")
+
+    (let ((text-prompt-fn (lambda (code) (format "
 In the following I will show you an instruction and then a code snippet. I want you to modify the code snippet based on the instruction. Only output the modified code. Do not include any explanation.
 
 Here is the instruction:
@@ -195,24 +248,24 @@ Here is the instruction:
 Here is the code snippet:
 %s
 " how (org-ai--insert-quote-prefix code))))
-        (buffer-with-selected-code (current-buffer))
-        (output-buffer (get-buffer-create "*org-ai-refactor*"))
-        (win-config (current-window-configuration)))
-    (org-ai--on-region-internal start end text-prompt-fn
-                                :output-buffer output-buffer
-                                :show-output-buffer t
-                                :callback (lambda ()
-                                            (progn
-                                              (with-current-buffer output-buffer
-                                                ;; ensure buffer ends with a newline
-                                                (goto-char (point-max))
-                                                (unless (eq (char-before) ?\n) (insert ?\n))
-                                                ;; mark the whole buffer
-                                                (push-mark)
-                                                (push-mark (point-max) nil t)
-                                                (goto-char (point-min)))
-                                              (org-ai--diff-and-patch-buffers buffer-with-selected-code output-buffer)
-                                              (set-window-configuration win-config))))))
+          (buffer-with-selected-code (current-buffer))
+          (output-buffer (get-buffer-create "*org-ai-refactor*"))
+          (win-config (current-window-configuration)))
+      (org-ai--on-region-internal start end text-prompt-fn
+                                  :output-buffer output-buffer
+                                  :show-output-buffer t
+                                  :callback (lambda ()
+                                              (progn
+                                                (with-current-buffer output-buffer
+                                                  ;; ensure buffer ends with a newline
+                                                  (goto-char (point-max))
+                                                  (unless (eq (char-before) ?\n) (insert ?\n))
+                                                  ;; mark the whole buffer
+                                                  (push-mark)
+                                                  (push-mark (point-max) nil t)
+                                                  (goto-char (point-min)))
+                                                (org-ai--diff-and-patch-buffers buffer-with-selected-code output-buffer)
+                                                (set-window-configuration win-config)))))))
 
 (defun org-ai--diff-and-patch-buffers (buffer-a buffer-b)
   "Will diff `BUFFER-A' and `BUFFER-B' and and offer to patch'.

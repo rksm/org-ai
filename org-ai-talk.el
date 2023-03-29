@@ -299,6 +299,12 @@ If `OUTPUT-BUFFER' is non-nil, insert the response there."
       (org-ai-talk-output-disable)
     (org-ai-talk-output-enable)))
 
+(defun org-ai-talk-input-toggle ()
+  "Toggle speech input for `org-ai-prompt' and `org-ai-talk-on-region' commands."
+  (interactive)
+  (setq org-ai-talk-spoken-input (not org-ai-talk-spoken-input))
+  (message "org-ai speech input %s" (if org-ai-talk-spoken-input "activated" "deactivated")))
+
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 (provide 'org-ai-talk)

@@ -277,20 +277,21 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
              (org-ai--maybe-show-openai-request-error)
              (org-ai-reset-stream-state))))
 
-    ;; (pop-to-buffer org-ai--current-request-buffer)
+    ;; (display-buffer-use-some-window org-ai--current-request-buffer nil)
 
     (unless (member 'org-ai--url-request-on-change-function after-change-functions)
       (with-current-buffer org-ai--current-request-buffer
         (add-hook 'after-change-functions #'org-ai--url-request-on-change-function nil t)))))
+
 
 (defun org-ai--maybe-show-openai-request-error ()
   "If the API request returned an error, show it."
   (with-current-buffer org-ai--current-request-buffer
     (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
       (goto-char url-http-end-of-headers))
-    (let* ((content (buffer-substring-no-properties (point) (point-max)))
-           (body (json-read-from-string content)))
-      (condition-case nil
+    (condition-case nil
+        (let* ((content (buffer-substring-no-properties (point) (point-max)))
+               (body (json-read-from-string content)))
           (let* ((err (alist-get 'error body))
                  (message (or (alist-get 'message err) (json-encode err)))
                  (buf (get-buffer-create "*org-ai error*")))
@@ -304,8 +305,8 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
               (read-only-mode 1)
               ;; close buffer when q is pressed
               (local-set-key (kbd "q") (lambda () (interactive) (kill-buffer-and-window)))
-              t))
-        (error nil)))))
+              t)))
+      (error nil))))
 
 (cl-defun org-ai--payload (&optional &key prompt messages model max-tokens temperature top-p frequency-penalty presence-penalty)
   "Create the payload for the OpenAI API.
