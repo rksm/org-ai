@@ -106,7 +106,7 @@ argument and returns a prompt.
   (replace-regexp-in-string "^" "> " str))
 
 (defun org-ai--prompt-on-region-create-text-prompt (user-input text)
-  "Create a prompt for `org-ai-prompt-on-region'.
+  "Create a prompt for `org-ai-on-region'.
 `USER-INPUT' is the user input like a question to answer.
 `TEXT' is the text of the region."
   (format "In the following I will show you a question and then a text. I want you to answer that question based on the text. Use the text as primary source but also add any external information you think is relevant.
@@ -119,7 +119,7 @@ Here is the text:
 " (org-ai--insert-quote-prefix user-input) (org-ai--insert-quote-prefix text)))
 
 (defun org-ai--prompt-on-region-create-code-prompt (user-input text)
-  "Create a prompt for `org-ai-prompt-on-region'.
+  "Create a prompt for `org-ai-on-region'.
 `USER-INPUT' is the user input like a question to answer.
 `TEXT' is the code of the region."
   (format "In the following I will show you a question and then a code snippet. I want you to answer that question based on the code snippet.
@@ -131,7 +131,7 @@ Here is the code snippet:
 %s
 " (org-ai--insert-quote-prefix user-input) (org-ai--insert-quote-prefix text)))
 
-(defun org-ai-prompt-on-region (start end question &optional buffer-name text-kind)
+(defun org-ai-on-region (start end question &optional buffer-name text-kind history)
   "Ask ChatGPT to answer a question based on the selected text.
 `QUESTION' is the question to answer.
 `START' is the buffer position of the region.
@@ -139,7 +139,9 @@ Here is the code snippet:
 `BUFFER-NAME' is the name of the buffer to insert the response in.
 `TEXT-KIND' is either the symbol 'text or 'code. If nil, it will
 be guessed from the current major mode."
-  (interactive "r \nMWhat do you want to know? ")
+  (interactive
+   (let ((question (read-string "What do you want to know? " nil 'org-ai-on-region-history)))
+     (list (region-beginning) (region-end) question)))
   (let* ((text-kind (or text-kind (cond ((derived-mode-p 'prog-mode) 'code)
                                         ((derived-mode-p 'text-mode) 'text)
                                         (t 'text))))
@@ -161,7 +163,7 @@ be guessed from the current major mode."
 `START' is the buffer position of the start of the text to summarize.
 `END' is the buffer position of the end of the text to summarize."
   (interactive "r")
-  (org-ai-prompt-on-region start end org-ai-summarize-prompt))
+  (org-ai-on-region start end org-ai-summarize-prompt))
 
 (defcustom org-ai-explain-code-prompt "The following shows a source code snippet. Explain what it does and mention potential issues and improvements."
   "The template to use for `org-ai-explain-code'."
@@ -173,7 +175,7 @@ be guessed from the current major mode."
 `START' is the buffer position of the start of the code snippet.
 `END' is the buffer position of the end of the code snippet."
   (interactive "r")
-  (org-ai-prompt-on-region start end org-ai-explain-code-prompt))
+  (org-ai-on-region start end org-ai-explain-code-prompt))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; refactor code
