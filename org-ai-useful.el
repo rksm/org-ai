@@ -81,8 +81,10 @@
 ;; org-ai-on-region
 
 (cl-defun org-ai--on-region-internal (start end text-prompt-fn &optional &key output-buffer show-output-buffer callback)
-  "Get the currently selected text, create a prompt, insert the response in `BUFFER-NAME'.
-`TEXT-PROMPT-FN' is a function that takes the selected text as argument and returns a prompt.
+  "Get the currently selected text, create a prompt, insert the response.
+`OUTPUT-BUFFER' is the buffer to insert the response in.
+`TEXT-PROMPT-FN' is a function that takes the selected text as
+argument and returns a prompt.
 `START' is the buffer position of the region.
 `END' is the buffer position of the region.
 `OUTPUT-BUFFER' is the name or the buffer to insert the response in.
@@ -94,7 +96,8 @@
       (erase-buffer)
       (toggle-truncate-lines -1)
       (when show-output-buffer
-        (display-buffer output-buffer)))
+        (when (= (length (window-list)) 1) (split-window-horizontally))
+        (display-buffer-use-some-window output-buffer nil)))
     (org-ai-prompt full-prompt :output-buffer output-buffer :callback callback)))
 
 
@@ -134,7 +137,8 @@ Here is the code snippet:
 `START' is the buffer position of the region.
 `END' is the buffer position of the region.
 `BUFFER-NAME' is the name of the buffer to insert the response in.
-`TEXT-KIND' is either the symbol 'text or 'code. If nil, it will be guessed from the current major mode."
+`TEXT-KIND' is either the symbol 'text or 'code. If nil, it will
+be guessed from the current major mode."
   (interactive "r \nMWhat do you want to know? ")
   (let* ((text-kind (or text-kind (cond ((derived-mode-p 'prog-mode) 'code)
                                         ((derived-mode-p 'text-mode) 'text)
@@ -190,7 +194,8 @@ Here is the code snippet:
 %s
 " how (org-ai--insert-quote-prefix code))))
         (buffer-with-selected-code (current-buffer))
-        (output-buffer (get-buffer-create "*org-ai-refactor*")))
+        (output-buffer (get-buffer-create "*org-ai-refactor*"))
+        (win-config (current-window-configuration)))
     (org-ai--on-region-internal start end text-prompt-fn
                                 :output-buffer output-buffer
                                 :show-output-buffer t
@@ -198,10 +203,14 @@ Here is the code snippet:
                                             (progn
                                               (with-current-buffer output-buffer
                                                 ;; ensure buffer ends with a newline
-                                                (end-of-buffer)
+                                                (goto-char (point-max))
                                                 (unless (eq (char-before) ?\n) (insert ?\n))
-                                                (mark-whole-buffer))
-                                              (org-ai--diff-and-patch-buffers buffer-with-selected-code output-buffer))))))
+                                                ;; mark the whole buffer
+                                                (push-mark)
+                                                (push-mark (point-max) nil t)
+                                                (goto-char (point-min)))
+                                              (org-ai--diff-and-patch-buffers buffer-with-selected-code output-buffer)
+                                              (set-window-configuration win-config))))))
 
 (defun org-ai--diff-and-patch-buffers (buffer-a buffer-b)
   "Will diff `BUFFER-A' and `BUFFER-B' and and offer to patch'.
@@ -216,14 +225,19 @@ Will open the diff buffer and return it."
                    (buffer-substring-no-properties (car reg-A) (cdr reg-A))))
          (text-b (with-current-buffer buffer-b
                    (buffer-substring-no-properties (car reg-B) (cdr reg-B))))
+         (win-config (current-window-configuration))
          (diff-buffer (org-ai--diff-strings text-a text-b)))
+    ;; Normally the diff would popup a new window. That's annoying.
+    (set-window-configuration win-config)
+    (display-buffer-use-some-window (get-buffer-create "*Diff*") nil)
     (when (y-or-n-p "Patch?")
       (pop-to-buffer buffer-a)
       (delete-region (car reg-A) (cdr reg-A))
-      (insert text-b))
+      (insert text-b)
+      (deactivate-mark))
     (kill-buffer diff-buffer)
     (kill-buffer buffer-b)
-    (pop-to-buffer buffer-a)))
+    (set-window-configuration win-config)))
 
 ;; (let ((buffer-with-selected-code (current-buffer))
 ;;       (output-buffer (get-buffer-create "*org-ai-refactor*")))
