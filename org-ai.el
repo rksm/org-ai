@@ -128,7 +128,7 @@ It's designed to \"do the right thing\":
   (define-key map (kbd "C-c M-a s") 'org-ai-summarize)
   (define-key map (kbd "C-c M-a p") 'org-ai-prompt)
   (define-key map (kbd "C-c M-a r") 'org-ai-talk-read-region)
-  (define-key map (kbd "C-c M-a P") 'org-ai-talk-everywhere))
+  (define-key map (kbd "C-c M-a P") 'org-ai-talk-capture-everywhere))
 
 ;;;###autoload
 (define-minor-mode org-ai-global-mode

@@ -131,7 +131,7 @@ Here is the code snippet:
 %s
 " (org-ai--insert-quote-prefix user-input) (org-ai--insert-quote-prefix text)))
 
-(defun org-ai-on-region (start end question &optional buffer-name text-kind history)
+(defun org-ai-on-region (start end question &optional buffer-name text-kind)
   "Ask ChatGPT to answer a question based on the selected text.
 `QUESTION' is the question to answer.
 `START' is the buffer position of the region.

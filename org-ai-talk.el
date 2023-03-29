@@ -69,6 +69,14 @@ https://github.com/natrys/whisper.el for instructions."
                  (setq org-ai-talk--whisper-transcription-buffer nil)))))))
     (error "The package whisper.el is not installed but needed for transcribing speech")))
 
+;; (lexical-let ((test-buf (get-buffer-create "*test-buffer*")))
+;;   (display-buffer-same-window test-buf)
+;;   (org-ai-talk--record-and-transcribe-speech (lambda (spoken-text)
+;;                                                (with-current-buffer test-buf
+;;                                                  (insert spoken-text)
+;;                                                  (insert "\n\n")))
+;;                                              "Say something then press any key..."))
+
 (defun org-ai-talk--stop-recording (then-do)
   "Force current recording to stop and call `THEN-DO'."
   (when (process-live-p whisper--recording-process)
@@ -241,7 +249,7 @@ If `CALLBACK' is non-nil, call it when done."
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; the actual useful commands
 
-(defun org-ai-talk-everywhere (&optional output-buffer)
+(defun org-ai-talk-capture-everywhere (&optional output-buffer)
   "The same as `ORG-AI-PROMPT' but uses speech input.
 If `OUTPUT-BUFFER' is non-nil, insert the response there."
   (interactive)
@@ -253,7 +261,7 @@ If `OUTPUT-BUFFER' is non-nil, insert the response there."
                                                  (org-ai-prompt spoken-text :output-buffer output-buffer))
                                                "Say something then press any key...")))
 
-(defun org-ai-talk-in-org ()
+(defun org-ai-talk-capture-in-org ()
   "The same as `ORG-AI-PROMPT' but uses speech input."
   (interactive)
   (if-let* ((context (org-ai-special-block))
@@ -268,28 +276,28 @@ If `OUTPUT-BUFFER' is non-nil, insert the response there."
            (when (fboundp 'org-ai-complete-block)
              (org-ai-complete-block)))
          "Say something then press any key..."))
-    (org-ai-talk-everywhere)))
+    (org-ai-talk-capture-everywhere)))
 
 (defvar org-ai-after-chat-insertion-hook)
 
-(defun org-ai-talk-enable ()
+(defun org-ai-talk-output-enable ()
   "Speak text coming from the AI."
   (interactive)
   (add-hook 'org-ai-after-chat-insertion-hook #'org-ai-talk--speak-inserted-text)
   (message "org-ai speech output activated"))
 
-(defun org-ai-talk-disable ()
+(defun org-ai-talk-output-disable ()
   "Disable speaking text coming from the AI."
   (interactive)
   (remove-hook 'org-ai-after-chat-insertion-hook #'org-ai-talk--speak-inserted-text)
   (message "org-ai speech output deactivated"))
 
-(defun org-ai-talk-toggle ()
+(defun org-ai-talk-output-toggle ()
   "Toggle speaking text coming from the AI."
   (interactive)
   (if (member 'org-ai-talk--speak-inserted-text org-ai-after-chat-insertion-hook)
-      (org-ai-talk-disable)
-    (org-ai-talk-enable)))
+      (org-ai-talk-output-disable)
+    (org-ai-talk-output-enable)))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
