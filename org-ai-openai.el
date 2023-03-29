@@ -274,6 +274,7 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
           (url-retrieve
            endpoint
            (lambda (_events)
+             (org-ai--maybe-show-openai-request-error)
              (org-ai-reset-stream-state))))
 
     ;; (pop-to-buffer org-ai--current-request-buffer)
@@ -281,6 +282,37 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
     (unless (member 'org-ai--url-request-on-change-function after-change-functions)
       (with-current-buffer org-ai--current-request-buffer
         (add-hook 'after-change-functions #'org-ai--url-request-on-change-function nil t)))))
+
+(defun org-ai--maybe-show-openai-request-error ()
+  "If the API request returned an error, show it."
+  (with-current-buffer org-ai--current-request-buffer
+    (goto-char url-http-end-of-headers)
+    (let* ((content (buffer-substring-no-properties (point) (point-max)))
+           (body (json-read-from-string content)))
+      (condition-case nil
+          (let* ((err (alist-get 'error body))
+                 (message (or (alist-get 'message err) (json-encode err)))
+                 (buf (get-buffer-create "*org-ai error*")))
+            ;; show error message
+            (with-current-buffer buf
+              (erase-buffer)
+              (insert message)
+              (pop-to-buffer buf)
+              (goto-char (point-min))
+              (toggle-truncate-lines -1)
+              (read-only-mode 1)
+              ;; close buffer when q is pressed
+              (local-set-key (kbd "q") (lambda () (interactive) (kill-buffer-and-window)))
+              t))
+        (error nil)))))
+
+(with-current-buffer org-ai--current-request-buffer
+  (goto-char url-http-end-of-headers)
+  (let* ((content (buffer-substring-no-properties (point) (point-max)))
+         (body (json-read-from-string content)))
+    (alist-get 'error body)))
+
+
 
 (cl-defun org-ai--payload (&optional &key prompt messages model max-tokens temperature top-p frequency-penalty presence-penalty)
   "Create the payload for the OpenAI API.
