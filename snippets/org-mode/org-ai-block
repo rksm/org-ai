@@ -3,8 +3,8 @@
 #key : ai
 #contributor : Robert Krahn
 # --
-#+begin_ai${1: :max-tokens ${2:512}}
-${3:[SYS]: ${4:You are a helpful assistant.}
+#+begin_ai
+${1:[SYS]: ${2:You are a helpful assistant.}
 
 }[ME]: $0
 #+end_ai

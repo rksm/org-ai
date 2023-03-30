@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.1] - 2023-03-30
+### Added
+- `org-ai-switch-chat-model`
+### Changed
+- No max-tokens in ai snippet
+- modified global shortcuts:
+    - `C-c M-a r`: `org-ai-on-region`
+    - `C-c M-a c`: `org-ai-refactor-code`
+    - `C-c M-a s`: `org-ai-summarize`
+    - `C-c M-a m`: `org-ai-switch-chat-model`
+    - `C-c M-a !`: `org-ai-open-request-buffer`
+    - `C-c M-a $`: `org-ai-open-account-usage-page`
+    - `C-c M-a t`: `org-ai-talk-input-toggle`
+    - `C-c M-a T`: `org-ai-talk-output-toggle`
+
+
 ## [0.2.0] - 2023-03-30
 ### Added
 

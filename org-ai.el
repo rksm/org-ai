@@ -4,7 +4,7 @@
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Version: 0.2.0
+;; Version: 0.2.1
 ;; Package-Requires: ((emacs "28.2") (greader "0.1"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -126,10 +126,16 @@ It's designed to \"do the right thing\":
   "Keymap for `org-ai-global-mode'.")
 
 (let ((map org-ai-global-mode-map))
-  (define-key map (kbd "C-c M-a s") 'org-ai-summarize)
   (define-key map (kbd "C-c M-a p") 'org-ai-prompt)
-  (define-key map (kbd "C-c M-a r") 'org-ai-talk-read-region)
-  (define-key map (kbd "C-c M-a P") 'org-ai-talk-capture-everywhere))
+  (define-key map (kbd "C-c M-a r") 'org-ai-on-region)
+  (define-key map (kbd "C-c M-a c") 'org-ai-refactor-code)
+  (define-key map (kbd "C-c M-a s") 'org-ai-summarize)
+  (define-key map (kbd "C-c M-a m") 'org-ai-switch-chat-model)
+
+  (define-key map (kbd "C-c M-a !") 'org-ai-open-request-buffer)
+  (define-key map (kbd "C-c M-a $") 'org-ai-open-account-usage-page)
+  (define-key map (kbd "C-c M-a t") 'org-ai-talk-input-toggle)
+  (define-key map (kbd "C-c M-a T") 'org-ai-talk-output-toggle))
 
 ;;;###autoload
 (define-minor-mode org-ai-global-mode

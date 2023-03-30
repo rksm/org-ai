@@ -60,6 +60,13 @@ in the `auth-sources' file."
   :type 'string
   :group 'org-ai)
 
+(defcustom org-ai-chat-models '("gpt-3.5-turbo"
+                                "gpt-4"
+                                "gpt-4-32k")
+  "Alist of available chat models. See https://platform.openai.com/docs/models."
+  :type '(alist :key-type string :value-type string)
+  :group 'org-ai)
+
 (defcustom org-ai-default-max-tokens nil
   "The default maximum number of tokens to generate. This is what costs money."
   :type 'string
@@ -404,6 +411,12 @@ and the length in chars of the pre-change text replaced by that range."
   (interactive)
   (when (buffer-live-p org-ai--current-request-buffer)
     (pop-to-buffer org-ai--current-request-buffer)))
+
+(defun org-ai-switch-chat-model ()
+  "Change `org-ai-default-chat-model'."
+  (interactive)
+  (let ((model (completing-read "Model: " org-ai-chat-models nil t)))
+    (setq org-ai-default-chat-model model)))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
