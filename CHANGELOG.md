@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.2] - 2023-03-31
+### Changed
+- add `"ai"` to `org-protecting-blocks` to fix the block syntax highlighting.
+
 ## [0.2.1] - 2023-03-30
 ### Added
 - `org-ai-switch-chat-model`
