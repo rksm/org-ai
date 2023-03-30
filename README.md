@@ -2,12 +2,39 @@
 
 Minor mode for Emacs org-mode that provides access to OpenAI API's. Inside an org-mode buffer you can
 - use ChatGPT to generate text, having full control over system and user prompts ([demo](#chatgpt-in-org-mode))
-- generate images with a text prompt using DALL-E  ([demo](#dall-e-in-org-mode))
-- generate image variations of an input image ([demo](#image-variations))
+- Speech input and output! Talk with your AI!
+- generate images and image variations with a text prompt using DALL-E ([demo 1](#dall-e-in-org-mode), [demo 2](#image-variations))
 
-Implemented in pure Emacs Lisp, no external dependencies required (except currently for image variations[^1]).
+__NOTE 1:__ v0.2.0 comes with a big update:
 
-_Note: In order to use this you'll need an [OpenAI account](https://platform.openai.com/) and you need to get an API token. As far as I can tell, the current usage limits for the free tier get you pretty far._
+#### Speech input/output. Talk with your AI!
+- In org-mode / `#+begin_ai..#+end_ai` blocks:
+  - `C-c r` to record and transcribe speech via whisper.el in org blocks.
+- Everywhere else:
+    - Enable speech input with `org-ai-talk-input-toggle` for other commands (see below).
+- Enable speech output with `org-ai-talk-output-enable`. Speech output uses os internal speech synth (macOS) or `espeak` otherwise.
+- See [Setting up speech input / output](#setting-up-speech-input--output) below for more details.
+
+#### Non-org-mode commands
+- `org-ai-prompt`: prompt the user for a text and then print the AI's response in current buffer.
+- `org-ai-on-region`: Ask a question about the selected text or tell the AI to do something with it.
+- `org-ai-summarize`: Summarize the selected text.
+- `org-ai-explain-code`: Explain the selected code.
+- `org-ai-refactor-code`: Tell the AI how to change the selected code, a diff buffer will appear with the changes.
+
+#### Other improvements
+- In org-mode / `#+begin_ai..#+end_ai` blocks:
+    - Press `C-c <backspace>` (`org-ai-kill-region-at-point`) to remove the chat part under point.
+    - `org-ai-mark-region-at-point` will mark the region at point.
+    - `org-ai-mark-last-region` will mark the last chat part.
+
+#### Other commands
+- `org-ai-open-account-usage-page` show how much money you burned.
+- `org-ai-install-yasnippets` install snippets for `#+begin_ai..#+end_ai` blocks.
+- `org-ai-open-request-buffer` for debugging, open the request buffer.
+
+
+_Note2: In order to use this you'll need an [OpenAI account](https://platform.openai.com/) and you need to get an API token. As far as I can tell, the current usage limits for the free tier get you pretty far._
 
 
 ------------------------------
@@ -15,17 +42,171 @@ _Note: In order to use this you'll need an [OpenAI account](https://platform.ope
 
 ## Table of Contents
 
+- [Setup](#setup)
+    - [Melpa](#melpa)
+    - [Straight.el](#straightel)
+    - [Manual](#manual)
+    - [Setting up speech input / output](#setting-up-speech-input--output)
 - [Features](#features)
 - [Demos](#demos)
     - [ChatGPT in org-mode](#chatgpt-in-org-mode)
     - [DALL-E in org-mode](#dall-e-in-org-mode)
     - [Image variations](#image-variations)
 - [Options](#options)
-- [Setup](#setup)
-    - [Melpa](#melpa)
-    - [Straight.el](#straightel)
-    - [Manual](#manual)
 - [FAQ](#faq)
+
+
+## Setup
+
+My personal config for org-ai can be found in [this gist](https://gist.github.com/rksm/04be012be07671cd5e1dc6ec5b077e34).
+
+### Melpa
+
+org-ai is on Melpa: https://melpa.org/#/org-ai. If you have added Melpa to your package archives with
+
+```elisp
+(require 'package)
+(add-to-list 'package-archives '("melpa" . "http://melpa.org/packages/") t)
+(package-initialize)
+```
+
+you can install it with:
+
+```elisp
+(use-package org-ai
+  :ensure
+  :commands (org-ai-mode)
+  :custom
+  (org-ai-openai-api-token "<ENTER YOUR API TOKEN HERE>")
+  :init
+  (add-hook 'org-mode-hook #'org-ai-mode)
+  :config
+  ;; if you are on the gpt-4 beta:
+  (setq org-ai-default-chat-model "gpt-4")
+  ;; if you are using yasnippet and want `ai` snippets
+  (org-ai-install-yasnippets))
+```
+
+### Straight.el
+
+```elisp
+(straight-use-package
+ '(org-ai :type git :host github :repo "rksm/org-ai"
+          :local-repo "org-ai"
+          :files ("*.el" "README.md" "snippets")))
+```
+
+### Manual
+
+Checkout this repository.
+
+```sh
+git clone
+https://github.com/rksm/org-ai
+```
+
+Then, if you use `use-package`:
+
+```elisp
+(use-package org-ai
+  :load-path (lambda () "path/to/org-ai")
+  :commands (org-ai-mode)
+  :custom
+  (org-ai-openai-api-token "<ENTER YOUR API TOKEN HERE>")
+  :init
+  (add-hook 'org-mode-hook #'org-ai-mode)
+  :config
+  ;; if you are using yasnippet and want `ai` snippets
+  (org-ai-install-yasnippets))
+```
+
+or just with `require`:
+
+```elisp
+(add-to-list 'load-path "path/to/org-ai")
+(require 'org)
+(require 'org-ai)
+(add-hook 'org-mode-hook #'org-ai-mode)
+(org-ai-install-yasnippets) ;; if you are using yasnippet and want `ai` snippets
+(setq org-ai-openai-api-token "<ENTER YOUR API TOKEN HERE>")
+```
+
+### API key with auth-source
+
+`org-ai` supports `auth-source` for retrieving your API key. You can store a secret in the format
+
+```
+machine api.openai.com login org-ai password <your-api-key>
+```
+
+If this is present, `org-ai-openai-api-token` will be automatically set that value. If you do not want `org-ai` to try to retrieve the key from `auth-source`, you can set `org-ai-use-auth-source` to `nil` before loading `org-ai`.
+
+### Setting up speech input / output
+
+This has been tested on macOS and Linux. Someone with a Windows computer, please test this and let me know what needs to be done to make it work (Thank You!).
+
+The speech input uses [whisper.el](https://github.com/natrys/whisper.el) and `ffmpeg`. You need to clone the repo directly or use [straight.el](https://github.com/radian-software/straight.el) to install it.
+
+1. install ffmpeg (e.g. `brew install ffmpeg` on macOS) or `sudo apt install ffmpeg` on Linux.
+2. Clone whisper.el: `git clone https://github.com/natrys/whisper.el path/to/whisper.el`
+
+You should now be able to load it inside Emacs:
+
+```elisp
+(use-package whisper
+  :load-path "path/to/whisper.el"
+  :bind ("M-s-r" . whisper-run))
+```
+
+Now also load `org-ai-talk`, it will not be loaded automatically:
+
+```elisp
+(use-package greader :ensure)
+(require 'whisper)
+(require 'org-ai-talk)
+
+;; macOS speech settings, optional
+(setq org-ai-talk-say-words-per-minute 210)
+(setq org-ai-talk-say-voice "Karen")
+```
+
+#### macOS specific steps
+
+On macOS you will need to do two more things:
+1. Allow Emacs to record audio
+2. Tell whisper.el what microphone to use
+
+##### 1. Allow Emacs to record audio
+You can use the [tccutil helper](https://github.com/DocSystem/tccutil):
+
+```sh
+git clone https://github.com/DocSystem/tccutil
+cd tccutil
+sudo python ./tccutil.py -p /Applications/Emacs.app -e --microphone
+```
+
+When you now run `ffmpeg -f avfoundation -i :0 output.mp3` from within an Emacs shell, there should be no `abort trap: 6` error.
+
+##### 2. Tell whisper.el what microphone to use
+
+You can use the output of `ffmpeg -f avfoundation -list_devices true -i ""` to list the audio input devices and then tell whisper.el about it: `(setq whisper--ffmpeg-input-device ":0")`. `:0` is the microphone index, see the output of the command above to use another one.
+
+I've created an emacs helper that let's you select the microphone interactively. See [this gist](https://gist.github.com/rksm/04be012be07671cd5e1dc6ec5b077e34#file-init-org-ai-el-L6).
+
+My full speech enabled config then looks like:
+
+```elisp
+(use-package whisper
+  :load-path (lambda () (expand-file-name "lisp/other-libs/whisper.el" user-emacs-directory))
+  :config
+  (setq whisper-model "base"
+        whisper-language "en"
+        whisper-translate nil)
+  (when *is-a-mac*
+    (rk/select-default-audio-device "Macbook Pro Microphone")
+    (when rk/default-audio-device)
+    (setq whisper--ffmpeg-input-device (format ":%s" rk/default-audio-device))))
+```
 
 
 ## Features
@@ -161,87 +342,6 @@ For the detailed meaning of those parameters see the [OpenAI API documentation](
 The following custom variables can be used to configure the text generation:
 
 - `org-ai-default-completion-model` (default: `"text-davinci-003"`)
-
-## Setup
-
-### Melpa
-
-org-ai is on Melpa: https://melpa.org/#/org-ai. If you have added Melpa to your package archives with
-
-```elisp
-(require 'package)
-(add-to-list 'package-archives '("melpa" . "http://melpa.org/packages/") t)
-(package-initialize)
-```
-
-you can install it with:
-
-```elisp
-(use-package org-ai
-  :ensure
-  :commands (org-ai-mode)
-  :custom
-  (org-ai-openai-api-token "<ENTER YOUR API TOKEN HERE>")
-  :init
-  (add-hook 'org-mode-hook #'org-ai-mode)
-  :config
-  ;; if you are using yasnippet and want `ai` snippets
-  (org-ai-install-yasnippets))
-```
-
-### Straight.el
-
-```elisp
-(straight-use-package
- '(org-ai :type git :host github :repo "rksm/org-ai"
-          :local-repo "org-ai"
-          :files ("*.el" "README.md" "snippets")))
-```
-
-### Manual
-
-Checkout this repository.
-
-```sh
-git clone
-https://github.com/rksm/org-ai
-```
-
-Then, if you use `use-package`:
-
-```elisp
-(use-package org-ai
-  :load-path (lambda () "path/to/org-ai")
-  :commands (org-ai-mode)
-  :custom
-  (org-ai-openai-api-token "<ENTER YOUR API TOKEN HERE>")
-  :init
-  (add-hook 'org-mode-hook #'org-ai-mode)
-  :config
-  ;; if you are using yasnippet and want `ai` snippets
-  (org-ai-install-yasnippets))
-```
-
-or just with `require`:
-
-```elisp
-(add-to-list 'load-path "path/to/org-ai")
-(require 'org)
-(require 'org-ai)
-(add-hook 'org-mode-hook #'org-ai-mode)
-(org-ai-install-yasnippets) ;; if you are using yasnippet and want `ai` snippets
-(setq org-ai-openai-api-token "<ENTER YOUR API TOKEN HERE>")
-```
-
-### API key with auth-source
-
-`org-ai` supports `auth-source` for retrieving your API key. You can store a secret in the format
-
-```
-machine api.openai.com login org-ai password <your-api-key>
-```
-
-If this is present, `org-ai-openai-api-token` will be automatically set that value. If you do not want `org-ai` to try to retrieve the key from `auth-source`, you can set `org-ai-use-auth-source` to `nil` before loading `org-ai`.
 
 ## FAQ
 
