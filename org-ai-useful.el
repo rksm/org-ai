@@ -56,10 +56,51 @@
 ;; just prompt
 
 (defcustom org-ai-talk-spoken-input nil
-  "Whether to use speech input for `org-ai-prompt' and `org-ai-talk-on-region' commands.
-See `org-ai-talk' for the details and implementation."
+  "Whether to use speech input.
+Whether to use speech input for `org-ai-prompt' and
+`org-ai-talk-on-region' commands. See `org-ai-talk' for the
+details and implementation."
   :type 'boolean
-  :group 'org-ai)
+  :group 'org-ai-talk)
+
+(defcustom org-ai-talk-confirm-speech-input nil
+  "Ask for confirmation before sending speech input to AI?"
+  :type 'boolean
+  :group 'org-ai-talk)
+
+(defun org-ai-confirm-send (prompt input)
+  "Show `PROMPT' and `INPUT' and ask for confirmation.
+Will always return t if `org-ai-talk-confirm-speech-input' is nil."
+  (if org-ai-talk-confirm-speech-input
+      (let ((window-config (current-window-configuration))
+            (buf (get-buffer-create "*org-ai-confirm*")))
+        (unwind-protect
+            (progn (pop-to-buffer buf)
+                   (erase-buffer)
+                   (insert prompt)
+                   (insert "\n")
+                   (insert input)
+                   (prog1
+                       (y-or-n-p (format "Send to AI?"))
+                     (kill-buffer buf)))
+          (set-window-configuration window-config)))
+    t))
+
+(defmacro org-ai-with-input-or-spoken-text (prompt input &rest body)
+  "Macro to optionally use speech input.
+`PROMPT' is the prompt to ask the user for.
+`INPUT' is the variable to bind the input to.
+`BODY' is the body to execute with `INPUT' bound."
+  (declare (indent 2))
+  `(if ,input
+       (progn
+         ,@body)
+     (if (fboundp 'org-ai-talk--record-and-transcribe-speech)
+         (org-ai-talk--record-and-transcribe-speech (lambda (,input)
+                                                      (when (org-ai-confirm-send ,prompt ,input)
+                                                        ,@body))
+                                                    ,prompt)
+       (error "Module not loaded: org-ai-talk"))))
 
 (cl-defun org-ai-prompt (prompt &optional &key sys-prompt output-buffer select-output callback)
   "Prompt for a gpt input, insert the response in current buffer.
@@ -71,16 +112,7 @@ See `org-ai-talk' for the details and implementation."
   (interactive
    (list (unless org-ai-talk-spoken-input (read-string "What do you want to know? " nil 'org-ai-prompt-history))))
 
-  ;; if speech input is enabled, transcribe it then call again
-  (if (and org-ai-talk-spoken-input (null prompt))
-      (org-ai-talk--record-and-transcribe-speech (lambda (spoken-text)
-                                                   (message "org-ai-prompt: %s" spoken-text)
-                                                   (org-ai-prompt spoken-text
-                                                                  :output-buffer output-buffer
-                                                                  :select-output select-output
-                                                                  :callback callback))
-                                                 "What do you want to know?")
-
+  (org-ai-with-input-or-spoken-text "What do you want to know?" prompt
     (let ((output-buffer (or output-buffer (current-buffer)))
           (start-pos (point)))
       (let* ((sys-input (if sys-prompt (format "[SYS]: %s\n" sys-prompt)))
@@ -174,14 +206,7 @@ be guessed from the current major mode."
    (let ((question (unless org-ai-talk-spoken-input (read-string "What do you want to know? " nil 'org-ai-on-region-history))))
      (list (region-beginning) (region-end) question)))
 
-  ;; if speech input is enabled, transcribe it then call again
-  (if (and org-ai-talk-spoken-input (null question))
-      (org-ai-talk--record-and-transcribe-speech (lambda (spoken-text)
-                                                   (message "org-ai-on-region: %s" spoken-text)
-                                                   (org-ai-on-region start end spoken-text buffer-name text-kind))
-                                                 "What do you want to know?")
-
-
+  (org-ai-with-input-or-spoken-text "What do you want to know?" question
     (let* ((text-kind (or text-kind (cond ((derived-mode-p 'prog-mode) 'code)
                                           ((derived-mode-p 'text-mode) 'text)
                                           (t 'text))))
@@ -232,13 +257,7 @@ be guessed from the current major mode."
    (let ((how (unless org-ai-talk-spoken-input (read-string "How should the code be modified? " nil 'org-ai-on-region-history))))
      (list (region-beginning) (region-end) how)))
 
-  ;; if speech input is enabled, transcribe it then call again
-  (if (and org-ai-talk-spoken-input (null how))
-      (org-ai-talk--record-and-transcribe-speech (lambda (spoken-text)
-                                                   (message "org-ai-refactor-code: %s" spoken-text)
-                                                   (org-ai-refactor-code start end spoken-text))
-                                                 "How should the code be modified?")
-
+  (org-ai-with-input-or-spoken-text "How should the code be modified? " how
     (let ((text-prompt-fn (lambda (code) (format "
 In the following I will show you an instruction and then a code snippet. I want you to modify the code snippet based on the instruction. Only output the modified code. Do not include any explanation.
 

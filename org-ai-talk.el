@@ -46,7 +46,6 @@ https://github.com/natrys/whisper.el for instructions."
   (if (fboundp 'whisper--check-install-and-run)
       (let* ((buffer (or org-ai-talk--whisper-transcription-buffer
                          (get-buffer-create "*org-ai-talk--whisper-transcription-buffer*"))))
-        ;; (pop-to-buffer buffer)
         (setq whisper--point-buffer buffer)
         (setq org-ai-talk--whisper-transcription-buffer buffer)
         (whisper--check-install-and-run nil "whisper-start")

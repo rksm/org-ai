@@ -107,7 +107,7 @@ It's designed to \"do the right thing\":
   (define-key map (kbd "C-c M-a SPC") 'org-ai-mark-region-at-point)
   (define-key map (kbd "C-c DEL") 'org-ai-kill-region-at-point)
   (define-key map (kbd "C-c <backspace>") 'org-ai-kill-region-at-point)
-  (define-key map (kbd "C-c r") 'org-ai-talk-capture-in-org))
+  (define-key map (kbd (string-join (list "C-c" " r"))) 'org-ai-talk-capture-in-org)) ; C-c r ¯\_(ツ)_/¯
 
 ;; create a minor-mode for org-mode
 (define-minor-mode org-ai-mode
