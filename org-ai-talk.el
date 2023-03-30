@@ -23,7 +23,6 @@
 
 ;;; Code:
 
-(require 'greader)
 (require 'org-ai-useful)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -182,12 +181,14 @@ If `CALLBACK' is non-nil, call it when done."
   "Read the region from `FROM' to `TO'.
 If `CALLBACK' is non-nil, call it when done.
 Uses greader / espeak, should work on all platforms where espeak is installed."
-  (if-let ((text (buffer-substring-no-properties from to)))
-      (progn
-       (greader-read-asynchronous text)
-       (setq org-ai-talk--reading-process greader-synth-process)
-       (org-ai-talk--wait-for-greader callback))
-    (warn "no sentence")))
+  (if (and (fboundp 'greader-read-asynchronous) (boundp 'greader-synth-process))
+      (if-let ((text (buffer-substring-no-properties from to)))
+          (progn
+            (greader-read-asynchronous text)
+            (setq org-ai-talk--reading-process greader-synth-process)
+            (org-ai-talk--wait-for-greader callback))
+        (warn "no sentence"))
+    (error "Greader not installed")))
 
 (defun org-ai-talk--read-region-macos (from to &optional callback)
   "Read the region from `FROM' to `TO'.
@@ -238,7 +239,8 @@ If `CALLBACK' is non-nil, call it when done."
 
   (when org-ai-talk-use-greader
     (condition-case _
-        (greader-stop)
+        (when (fboundp 'greader-stop)
+          (greader-stop))
       (error nil)))
 
   (setq org-ai-talk--reading-process nil)

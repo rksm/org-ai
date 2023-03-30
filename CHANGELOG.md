@@ -14,7 +14,8 @@
     - `C-c M-a $`: `org-ai-open-account-usage-page`
     - `C-c M-a t`: `org-ai-talk-input-toggle`
     - `C-c M-a T`: `org-ai-talk-output-toggle`
-
+### Removed
+- Make greader dependency optional
 
 ## [0.2.0] - 2023-03-30
 ### Added

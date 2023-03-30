@@ -5,7 +5,7 @@
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
 ;; Version: 0.2.1
-;; Package-Requires: ((emacs "28.2") (greader "0.1"))
+;; Package-Requires: ((emacs "28.2"))
 
 ;; This file is NOT part of GNU Emacs.
 
