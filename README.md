@@ -1,5 +1,7 @@
 # org-ai [![MELPA](https://melpa.org/packages/org-ai-badge.svg)](https://melpa.org/#/org-ai)
 
+[![org-ai video](doc/org-ai-youtube-thumb-github.png)](https://www.youtube.com/watch?v=fvBDxiFPG6I)
+
 Minor mode for Emacs org-mode that provides access to OpenAI API's. Inside an org-mode buffer you can
 - use ChatGPT to generate text, having full control over system and user prompts ([demo](#chatgpt-in-org-mode))
 - Speech input and output! Talk with your AI!
