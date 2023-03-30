@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.0] - 2023-03-28
+## [0.2.0] - 2023-03-30
 ### Added
 
 #### Speech input/output. Talk with your AI!
