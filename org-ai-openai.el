@@ -223,6 +223,9 @@ the response into."
                    ((plist-get delta 'content)
                     (let ((text (plist-get delta 'content)))
                       (when (or org-ai--chat-got-first-response (not (string= (string-trim text) "")))
+                        (when (and (not org-ai--chat-got-first-response) (string-prefix-p "```" text))
+                          ;; start markdown codeblock responses on their own line
+                          (insert "\n"))
                         (insert (decode-coding-string text 'utf-8))
                         (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text))
                       (setq org-ai--chat-got-first-response t)))
