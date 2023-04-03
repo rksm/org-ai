@@ -131,7 +131,8 @@ Will always return t if `org-ai-talk-confirm-speech-input' is nil."
                                                   ((plist-get delta 'content)
                                                    (let ((text (plist-get delta 'content)))
                                                      (with-current-buffer output-buffer
-                                                       (goto-char (point-max))
+                                                       (unless (eq (window-buffer) output-buffer)
+                                                         (goto-char (point-max)))
                                                        (insert (decode-coding-string text 'utf-8)))
                                                      (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text)))
                                                   ((plist-get choice 'finish_reason)
