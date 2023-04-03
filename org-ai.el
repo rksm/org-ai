@@ -4,7 +4,7 @@
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Version: 0.2.2
+;; Version: 0.2.3
 ;; Package-Requires: ((emacs "28.2"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -102,7 +102,7 @@ the text content to the OpenAI API and replace the block with the
 result."
   (interactive)
   (let* ((context (org-ai-special-block))
-         (content (org-ai-get-block-content context))
+         (content (encode-coding-string (org-ai-get-block-content context) 'utf-8))
          (info (org-ai-get-block-info context))
          (req-type (org-ai--request-type info))
          (sys-prompt-for-all-messages (or (not (eql 'x (alist-get :sys-everywhere info 'x)))
@@ -111,7 +111,10 @@ result."
       (completion (org-ai-stream-completion :prompt (encode-coding-string content 'utf-8)
                                             :context context))
       (image (org-ai-create-and-embed-image context))
-      (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages content org-ai-default-chat-system-prompt sys-prompt-for-all-messages)
+      (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages
+                                              content
+                                              org-ai-default-chat-system-prompt
+                                              sys-prompt-for-all-messages)
                                    :context context)))))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-

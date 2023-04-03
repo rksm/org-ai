@@ -266,15 +266,14 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
                                       ("Content-Type" . "application/json")))
          (url-request-method "POST")
          (endpoint (if messages org-ai-openai-chat-endpoint org-ai-openai-completion-endpoint))
-         (url-request-data (encode-coding-string (org-ai--payload :prompt prompt
-								  :messages messages
-								  :model model
-								  :max-tokens max-tokens
-								  :temperature temperature
-								  :top-p top-p
-								  :frequency-penalty frequency-penalty
-								  :presence-penalty presence-penalty)
-                                                 'utf-8)))
+         (url-request-data (org-ai--payload :prompt prompt
+					    :messages messages
+					    :model model
+					    :max-tokens max-tokens
+					    :temperature temperature
+					    :top-p top-p
+					    :frequency-penalty frequency-penalty
+					    :presence-penalty presence-penalty)))
 
     ;; (message "REQUEST %s" url-request-data)
 

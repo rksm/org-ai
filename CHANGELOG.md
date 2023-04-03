@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.3] - 2023-04-04
+### Changed
+- correctly encode UTF-8 strings when sending them to the API. This should fix non-ascii characters and multi-byte characters such as emojis in the input.
+- start markdown codeblock AI responses on their own line (see https://github.com/rksm/org-ai/issues/17#issuecomment-1494970605)
+
 ## [0.2.2] - 2023-03-31
 ### Changed
 - add `"ai"` to `org-protecting-blocks` to fix the block syntax highlighting.
