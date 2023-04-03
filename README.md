@@ -50,6 +50,9 @@ _Note2: In order to use this you'll need an [OpenAI account](https://platform.op
     - [Manual](#manual)
     - [Setting up speech input / output](#setting-up-speech-input--output)
 - [Features](#features)
+    - [`#+begin_ai...#+end_ai` special blocks](#begin_aiend_ai-special-blocks)
+        - [Syntax highlighting in ai blocks](#syntax-highlighting-in-ai-blocks)
+    - [Image variation](#image-variation)
 - [Demos](#demos)
     - [ChatGPT in org-mode](#chatgpt-in-org-mode)
     - [DALL-E in org-mode](#dall-e-in-org-mode)
@@ -260,6 +263,10 @@ This will result in an API payload like
 For some prompt ideas see for example [Awesome ChatGPT Prompts](https://github.com/f/awesome-chatgpt-prompts).
 
 When generating images using the `:image` flag, images will appear underneath the ai block inline. Images will be stored (together with their prompt) inside `org-ai-image-directory` which defaults to `~/org/org-ai-images/`.
+
+#### Syntax highlighting in ai blocks
+
+To apply syntax highlighted to your `#+begin_ai ...` blocks just add a language major-mode name after `_ai`. E.g. `#+begin_ai markdown`. For markdown in particular, to then also correctly highlight code in in backticks, you can set `(setq markdown-fontify-code-blocks-natively t)`. Thanks @tavisrudd for this trick!
 
 ### Image variation
 
