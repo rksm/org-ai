@@ -2,6 +2,11 @@
 
 ## [0.2.3] - 2023-04-04
 ### Changed
+- Make 'org-ai-summarize' treat the region as text not as code (https://github.com/rksm/org-ai/pull/22)
+- fix "Error on checkbox C-c C-c after org-ai loaded" (https://github.com/rksm/org-ai/issues/23)
+
+## [0.2.3] - 2023-04-04
+### Changed
 - correctly encode UTF-8 strings when sending them to the API. This should fix non-ascii characters and multi-byte characters such as emojis in the input.
 - start markdown codeblock AI responses on their own line (see https://github.com/rksm/org-ai/issues/17#issuecomment-1494970605)
 
