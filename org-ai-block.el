@@ -28,14 +28,13 @@
 (when (and (boundp 'org-protecting-blocks) (listp org-protecting-blocks))
   (add-to-list 'org-protecting-blocks "ai"))
 
-(defun org-ai-special-block (&optional el)
-  "Are we inside a #+begin_ai...#+end_ai block? `EL' is the current special block."
+(defun org-ai-special-block ()
+  "Are we inside a #+begin_ai...#+end_ai block?"
   (let (org-element-use-cache) ;; with cache enabled we get weird Cached element is incorrect warnings
-    (let ((context (org-element-context el)))
-      (if (equal 'special-block (org-element-type context))
-          context
-        (when-let ((parent (org-element-property :parent context)))
-          (org-ai-special-block parent))))))
+    (cl-loop with context = (org-element-context)
+             while (and context (not (equal 'special-block (org-element-type context))))
+             do (setq context (org-element-property :parent context))
+             finally return context)))
 
 (defun org-ai-get-block-info (&optional context)
   "Parse the header of #+begin_ai...#+end_ai block.
