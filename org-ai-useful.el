@@ -230,7 +230,7 @@ be guessed from the current major mode."
 `START' is the buffer position of the start of the text to summarize.
 `END' is the buffer position of the end of the text to summarize."
   (interactive "r")
-  (org-ai-on-region start end org-ai-summarize-prompt))
+  (org-ai-on-region start end org-ai-summarize-prompt nil 'text))
 
 (defcustom org-ai-explain-code-prompt "The following shows a source code snippet. Explain what it does and mention potential issues and improvements."
   "The template to use for `org-ai-explain-code'."
