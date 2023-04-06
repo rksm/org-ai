@@ -102,13 +102,13 @@ the text content to the OpenAI API and replace the block with the
 result."
   (interactive)
   (let* ((context (org-ai-special-block))
-         (content (encode-coding-string (org-ai-get-block-content context) 'utf-8))
+         (content (org-ai-get-block-content context))
          (info (org-ai-get-block-info context))
          (req-type (org-ai--request-type info))
          (sys-prompt-for-all-messages (or (not (eql 'x (alist-get :sys-everywhere info 'x)))
                                           org-ai-default-inject-sys-prompt-for-all-messages)))
     (cl-case req-type
-      (completion (org-ai-stream-completion :prompt (encode-coding-string content 'utf-8)
+      (completion (org-ai-stream-completion :prompt content
                                             :context context))
       (image (org-ai-create-and-embed-image context))
       (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages

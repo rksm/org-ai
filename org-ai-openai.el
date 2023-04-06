@@ -336,7 +336,7 @@ is the presence penalty."
                              ,@(when top-p             `((top_p . ,top-p)))
                              ,@(when frequency-penalty `((frequency_penalty . ,frequency-penalty)))
                              ,@(when presence-penalty  `((presence_penalty . ,presence-penalty)))))))
-    (json-encode data)))
+    (encode-coding-string (json-encode data) 'utf-8)))
 
 (defun org-ai--url-request-on-change-function (_beg _end _len)
   "Look into the url-request buffer and manually extracts JSON stream responses.
