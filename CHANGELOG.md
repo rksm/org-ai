@@ -1,6 +1,9 @@
 # Changelog
 
-## [0.2.3] - 2023-04-04
+## [0.2.5] - 2023-04-07
+- Another attempt to fix unicode / multi-byte inputs. The string encoding we had before 0.2.3 was correct, but I missed that the entirety of the request body needs to be encoded as utf-8, including the headers need to be utf-8. In my case my openai auth token was not utf-8, and so i got a `Multibyte text in HTTP request` and wrongly assumed this is due to the content. This should be fixed now.
+
+## [0.2.4] - 2023-04-04
 ### Changed
 - Make 'org-ai-summarize' treat the region as text not as code (https://github.com/rksm/org-ai/pull/22)
 - fix "Error on checkbox C-c C-c after org-ai loaded" (https://github.com/rksm/org-ai/issues/23)

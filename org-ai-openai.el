@@ -262,7 +262,7 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
   (unless org-ai-openai-api-token
     (error "Please set `org-ai-openai-api-token' to your OpenAI API token"))
   (let* ((token org-ai-openai-api-token)
-         (url-request-extra-headers `(("Authorization" . ,(string-join `("Bearer" ,token) " "))
+         (url-request-extra-headers `(("Authorization" . ,(encode-coding-string (string-join `("Bearer" ,token) " ") 'utf-8))
                                       ("Content-Type" . "application/json")))
          (url-request-method "POST")
          (endpoint (if messages org-ai-openai-chat-endpoint org-ai-openai-completion-endpoint))
