@@ -157,6 +157,7 @@ argument and returns a prompt.
          (full-prompt (funcall text-prompt-fn text))
          (output-buffer (get-buffer-create (or output-buffer "*org-ai-on-region*"))))
     (with-current-buffer output-buffer
+      (read-only-mode -1)
       (erase-buffer)
       (toggle-truncate-lines -1)
       (when show-output-buffer
