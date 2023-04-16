@@ -32,6 +32,42 @@
 
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+;; customizations
+
+(defcustom org-ai-on-project-default-prompt
+  "I will show you a request and a list of file names together with their content. The files belong to the same project. I want you to answer the request using the file contents.
+
+Here is the request:
+%s
+
+Here are the files:"
+  "Default prompt for `org-ai-on-project' in which to embed the users request in."
+  :type 'string
+  :group 'org-ai-on-project)
+
+(defcustom org-ai-on-project-default-modify-prompt
+  "Now modify the code according to the request. Show it in the same format, file name followed by content. Leave out any files that you did not modify. You can add new files or split existing ones if necessary. Do not at any explanation whatsoever. DO NOT ADD ANYTHING EXCEPT THE FILE NAMES AND THEIR CONTENTS!"
+  "Default prompt for org-ai-on-project."
+  :type 'string
+  :group 'org-ai-on-project)
+
+(defcustom org-ai-on-project-default-request-prompt
+  "Now answer the request using the file contents."
+  "Default prompt for org-ai-on-project."
+  :type 'string
+  :group 'org-ai-on-project)
+
+(defcustom org-ai-on-project-use-stream t
+  "If non-nil, use streaming to get the result."
+  :type 'boolean
+  :group 'org-ai-on-project)
+
+(defcustom org-ai-on-project-max-files 300
+  "The max number of files to show when searching."
+  :type 'integer
+  :group 'org-ai-on-project)
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; data structures for representing the selected project files
 
 (cl-defstruct org-ai-on-project--state
@@ -73,53 +109,85 @@
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; helpers
-(defun org-ai-on-project--reload ()
-  (when (buffer-live-p (get-buffer org-ai-on-project--buffer-name))
-    (with-current-buffer org-ai-on-project--buffer-name
-      (org-ai-on-project--render org-ai-on-project--last-state))))
 
-(defun org-ai-on-project--find-files (base-dir patterns)
-  (let* ((default-directory base-dir)
-         (patterns (string-split patterns " " t))
-         (known-project-files (or
-                               (and (boundp 'projectile-mode)
-                                    projectile-mode
-                                    (fboundp #'projectile-current-project-files)
-                                    (projectile-current-project-files)))))
+(defun org-ai-on-project--org-ai-file-for (file)
+  "Return the org-ai file for FILE.
+E.g. bar/foo.txt -> bar/.orgai__foo.txt."
+  (replace-regexp-in-string
+   "\\(.*/\\)?\\(.*\\)"
+   (concat "\\1" org-ai-on-project--file-prefix "\\2")
+   file))
 
-    ;; This is quite a hack here:
-    ;; If we have a pattern like "**/*js", it will only search in subdirectories,
-    ;; not the base directory.
-    ;; This is unlikely what the user want so we will add a pattern without the
-    ;; "**/" prefix like "*js"
-    (setq patterns (append patterns
-                           (cl-loop for pattern in patterns
-                                    with modified-pattern = nil
-                                    when (string-prefix-p "**/" pattern)
-                                    do (setq modified-pattern (string-replace "**/" "" pattern))
-                                    when (not (member modified-pattern patterns))
-                                    collect (string-replace "**/" "" pattern))))
+(defun org-ai-on-project--find-files-with-projectile (project-dir regexp)
+  "Find files in BASE-DIR matching REGEXP.
+This requires BASE-DIR to be a projectile project."
+  (cl-loop with found-files = nil
+           with found-org-ai-files = (make-hash-table :test #'equal)
+           with org-ai-file-p
+
+           for file in (projectile-project-files project-dir)
+
+           do (setq org-ai-file-p (string-match-p org-ai-on-project--file-prefix file))
+
+           when org-ai-file-p
+           do (let ((orig-file (string-replace org-ai-on-project--file-prefix "" file)))
+                (puthash orig-file file found-org-ai-files))
+           when (string-match-p regexp file)
+
+           when (and (not org-ai-file-p)
+                     (string-match-p regexp file))
+           do (push (make-org-ai-on-project--file
+                     :file file
+                     :full-path (expand-file-name file project-dir)
+                     :chosen t)
+                    found-files)
+
+           finally return (cons
+                           (nreverse found-files)
+                           (unless (hash-table-empty-p found-org-ai-files) found-org-ai-files))))
+
+(defun org-ai-on-project--find-files (base-dir regexp)
+  (let (raw-files raw-org-ai-files)
+
+    (if-let* ((project-dir (and (boundp 'projectile-mode)
+                                projectile-mode
+                                (fboundp #'projectile-project-root)
+                                (projectile-project-root base-dir)))
+              (files (and (fboundp #'projectile-project-files)
+                          (projectile-project-files project-dir))))
+        (progn
+          (setq base-dir project-dir)
+          (cl-loop for file in files
+                   with org-ai-file-p
+                   do (setq org-ai-file-p (string-match-p org-ai-on-project--file-prefix file))
+                   when org-ai-file-p
+                   do (push file raw-org-ai-files)
+                   when (and (not org-ai-file-p)
+                             (string-match-p regexp file))
+                   do (push file raw-files)))
+
+      (let ((default-directory base-dir))
+        (setq raw-org-ai-files (cl-loop for file in (directory-files-recursively "." (concat (regexp-quote org-ai-on-project--file-prefix) ".*"))
+                                        collect (string-remove-prefix "./" file)))
+        (cl-loop for file in (directory-files-recursively "." ".*")
+                 do (let ((file (string-remove-prefix "./" file)))
+                      (when (string-match-p regexp file)
+                        (push file raw-files))))))
 
     (cl-loop with found-files = nil
              with found-org-ai-files = (make-hash-table :test #'equal)
-             for pattern in patterns
-             do (cl-loop for file in (file-expand-wildcards pattern)
-                         with org-ai-file-p
 
-                         do (setq org-ai-file-p (string-match-p org-ai-on-project--file-prefix file))
-                         when (and (file-regular-p file) org-ai-file-p)
-                         do (let ((orig-file (string-replace org-ai-on-project--file-prefix "" file)))
-                              (puthash orig-file file found-org-ai-files))
+             for file in raw-files
 
-                         when (and (file-regular-p file)
-                                   (not org-ai-file-p)
-                                   (or (not known-project-files)
-                                       (member file known-project-files)))
-                         do (push (make-org-ai-on-project--file
-                                   :file file
-                                   :full-path (expand-file-name file base-dir)
-                                   :chosen t)
-                                  found-files))
+             do (let ((org-ai-file (org-ai-on-project--org-ai-file-for file)))
+                  (when (member org-ai-file raw-org-ai-files)
+                    (puthash file org-ai-file found-org-ai-files)))
+
+             do (push (make-org-ai-on-project--file
+                       :file file
+                       :full-path (expand-file-name file base-dir)
+                       :chosen t)
+                      found-files)
 
              finally return (cons
                              (nreverse found-files)
@@ -271,17 +339,23 @@ FILE is of type `org-ai-on-project--file`. It is not a string!"
      (widget-insert "On project: " base-dir "\n\n")
      (org-ai-on-project--render-prompt state)
      (widget-insert "\n\n")
+     (org-ai-on-project--render-search-input state)
 
      ;; List files. If we have modifications, offer diff/patch options
-     (if has-modifications-p
-         (progn
-           (widget-insert "Files:\n\n")
+     (let* ((too-many-files-p (> (length files) org-ai-on-project-max-files))
+            (files-limited (if too-many-files-p
+                               (seq-take files org-ai-on-project-max-files)
+                             files)))
+       (if has-modifications-p
            (cl-loop for file in files
-                    do (org-ai-on-project--render-file-with-modification state file)))
-       (progn
-         (org-ai-on-project--render-search-input state)
+                    do (org-ai-on-project--render-file-with-modification state file))
          (cl-loop for file in files
-                  do (org-ai-on-project--render-file-without-modification state file))))
+                  do (org-ai-on-project--render-file-without-modification state file)))
+
+       (when too-many-files-p
+         (widget-insert (format "\nToo many files to display. Showing %s of %s files.\n"
+                                org-ai-on-project-max-files
+                                (length files)))))
 
      (widget-insert "\n")
 
@@ -441,6 +515,10 @@ STATE is `org-ai-on-project--state'."
                                (kill-buffer))))
                  "Quit"))
 
+(defun org-ai-on-project--reload ()
+  (when (buffer-live-p (get-buffer org-ai-on-project--buffer-name))
+    (with-current-buffer org-ai-on-project--buffer-name
+      (org-ai-on-project--render org-ai-on-project--last-state))))
 
 (defun org-ai-on-project--self-insert-command (N)
   "Helper for buffer commands."
@@ -473,32 +551,6 @@ STATE is `org-ai-on-project--state'."
   :group 'org-ai-on-project)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-
-(defcustom org-ai-on-project-default-prompt
-  "I will show you a request and a list of file names together with their content. The files belong to the same project. I want you to answer the request using the file contents.
-
-Here is the request:
-%s
-
-Here are the files:"
-  "Default prompt for `org-ai-on-project' in which to embed the users request in."
-  :type 'string
-  :group 'org-ai-on-project)
-
-(defcustom org-ai-on-project-default-modify-prompt
-  "Now modify the code according to the request. Show it in the same format, file name followed by content. Leave out any files that you did not modify. You can add new files or split existing ones if necessary. Do not at any explanation whatsoever. DO NOT ADD ANYTHING EXCEPT THE FILE NAMES AND THEIR CONTENTS!"
-  "Default prompt for org-ai-on-project."
-  :type 'string
-  :group 'org-ai-on-project)
-
-(defcustom org-ai-on-project-default-request-prompt
-  "Now answer the request using the file contents."
-  "Default prompt for org-ai-on-project."
-  :type 'string
-  :group 'org-ai-on-project)
-
-(defcustom org-ai-on-project-use-stream t
-  "If non-nil, use streaming to get the result.")
 
 (defun org-ai-on-project--run (state)
   "Takes the current STATE and runs the AI on it.
@@ -597,11 +649,8 @@ requested) or we:
             (original-and-modified-files (make-hash-table :test 'equal)))
         (cl-loop for key being the hash-keys of modified
                  using (hash-values value)
-                 ;; for each file, create a __org-ai__ file that contains the modified content
-                 do (let ((modified-file (replace-regexp-in-string
-                                          "\\(.*/\\)?\\(.*\\)"
-                                          (concat "\\1" org-ai-on-project--file-prefix "\\2")
-                                          key)))
+                 ;; for each file, create a .org-ai__ file that contains the modified content
+                 do (let ((modified-file (org-ai-on-project--org-ai-file-for key)))
                       (puthash key modified-file original-and-modified-files)
                       (with-temp-file modified-file
                         (insert value))))
@@ -635,7 +684,7 @@ requested) or we:
 (defun org-ai-on-project (&optional base-dir)
   "Start org-ai-on-project.
 This is a command that will allow you to run an org-ai prompt on
-multiple files. You can select the files using a glob expression
+multiple files. You can select the files using a regexp expression
 and optionally select regions inside of the files.
 
 Those files will then be concatenated and passed to org-ai with
@@ -648,7 +697,7 @@ your prompt."
         (org-ai-on-project--render state))
     (let ((state (make-org-ai-on-project--state :base-dir (or base-dir default-directory)
                                                 :modify-code t
-                                                :file-search-pattern "**/*"
+                                                :file-search-pattern ".*"
                                                 :prompt (if org-ai-on-project--last-state
                                                             (org-ai-on-project--state-prompt org-ai-on-project--last-state)
                                                           ""))))
