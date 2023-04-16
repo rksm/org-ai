@@ -46,9 +46,29 @@ Here are the files:"
   :group 'org-ai-on-project)
 
 (defcustom org-ai-on-project-default-modify-prompt
-  "Now modify the code according to the request. Show it in the same format, file name followed by content. Leave out any files that you did not modify. You can add new files or split existing ones if necessary. Do not at any explanation whatsoever. DO NOT ADD ANYTHING EXCEPT THE FILE NAMES AND THEIR CONTENTS!"
+  "Now modify the code according to the request. Show it in the same format, file name followed by content. Leave out any files that you did not modify. Do not add any explanation whatsoever. DO NOT ADD ANYTHING EXCEPT THE FILE NAMES AND THEIR CONTENTS!"
   "Default prompt for org-ai-on-project."
   :type 'string
+  :group 'org-ai-on-project)
+
+(defcustom org-ai-on-project-modify-with-diff-prompt
+  "Now modify the code according to the request. Skip any files that you did not modify. Output the modifications as unified diffs in the format:
+filename
+```
+diff
+```
+Ensure that the diff is valid. Do not add any explanation whatsoever. DO NOT ADD ANYTHING EXCEPT THE FILE NAMES AND THEIR CONTENTS!"
+  "Default prompt for org-ai-on-project."
+  :type 'string
+  :group 'org-ai-on-project)
+
+(defcustom org-ai-on-project-modify-with-diffs
+  t
+  "If non-nil, request that the model generate diffs.
+This will be a lot faster because the model does not have to
+replicate the entire file. But it also might lead to invalid
+patches."
+  :type 'boolean
   :group 'org-ai-on-project)
 
 (defcustom org-ai-on-project-default-request-prompt
@@ -77,6 +97,7 @@ Here are the files:"
   files
   org-ai-files
   modify-code
+  modify-with-diffs
   prompt)
 
 (cl-defstruct org-ai-on-project--file
@@ -211,13 +232,19 @@ This requires BASE-DIR to be a projectile project."
          start end)
     (with-temp-buffer
       (insert-file-contents full-path)
+      ;; ensure newline at end
+      (unless (looking-back "\n")
+        (insert "\n")
+        ;; ensure the original file has it as well, otherwise we can get issues
+        ;; with patching
+        (write-region (point-min) (point-max) full-path nil 'silent)))
       (goto-char (or region-start (point-min)))
       (beginning-of-line)
       (setq start (point))
       (goto-char (or region-start (point-max)))
       (end-of-line)
       (setq end (point))
-      (buffer-substring-no-properties start end))))
+      (buffer-substring-no-properties start end)))
 
 (defun org-ai-on-project--extract-files-and-code-blocks (&optional start end)
   "Expects that the current buffer shows files and code.
@@ -259,6 +286,42 @@ code as values."
                                           (line-beginning-position))))
                     (puthash file-name file-content result)))
       result)))
+
+(defun org-ai-on-project--patch-file (state file)
+  "Patch the file FILE in the project of STATE."
+  (let* ((file-name (org-ai-on-project--file-file file))
+         (org-ai-file (gethash file-name (org-ai-on-project--state-org-ai-files state)))
+         (has-diff-p (org-ai-on-project--state-modify-with-diffs state))
+         (buffer-a (find-file-noselect file-name))
+         (buffer-b (find-file-noselect org-ai-file)))
+
+    (if has-diff-p
+        (let ((win-config (current-window-configuration)))
+          (switch-to-buffer buffer-b)
+          (diff-mode)
+          (if (not (diff-test-hunk))
+              (error "Diff cannot be applied")
+              (progn
+                (display-buffer-other-frame buffer-a)
+                (when (y-or-n-p "Apply diff? ")
+                  (diff-apply-hunk)
+                  (org-ai-on-project--remove-org-ai-file state file-name org-ai-file))
+                (kill-buffer buffer-b)
+                (with-current-buffer buffer-a (save-buffer))
+                (set-window-configuration win-config)
+                (org-ai-on-project--render state))))
+
+      (with-current-buffer buffer-a
+        (if region
+            (progn
+              (goto-char (car region))
+              (set-mark (cadr region)))
+          (mark-whole-buffer)))
+      (with-current-buffer buffer-b (mark-whole-buffer))
+      (when (org-ai--diff-and-patch-buffers buffer-a buffer-b)
+        (with-current-buffer buffer-a (save-buffer))
+        (org-ai-on-project--remove-org-ai-file state file-name org-ai-file)
+        (org-ai-on-project--render state)))))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; helper mode and functions for selecting regions in files
@@ -342,7 +405,7 @@ FILE is of type `org-ai-on-project--file`. It is not a string!"
 
      (widget-insert "On project: " base-dir "\n\n")
      (org-ai-on-project--render-prompt state)
-     (widget-insert "\n\n")
+     (widget-insert "\n")
      (org-ai-on-project--render-search-input state)
 
      ;; List files. If we have modifications, offer diff/patch options
@@ -445,25 +508,14 @@ FILE is `org-ai-on-project--file'."
     (when org-ai-file
       (widget-create 'push-button
                      :notify (lambda (&rest ignore)
-                               (find-file org-ai-file))
+                               (find-file org-ai-file)
+                               (when (org-ai-on-project--state-modify-with-diffs state)
+                                 (diff-mode)))
                      "Show changes")
       (widget-insert " ")
 
       (widget-create 'push-button
-                     :notify (lambda (&rest ignore)
-                               (let ((buffer-a (find-file-noselect file-name))
-                                     (buffer-b (find-file-noselect org-ai-file)))
-                                 (with-current-buffer buffer-a
-                                   (if region
-                                       (progn
-                                         (goto-char (car region))
-                                         (set-mark (cadr region)))
-                                     (mark-whole-buffer)))
-                                 (with-current-buffer buffer-b (mark-whole-buffer))
-                                 (when (org-ai--diff-and-patch-buffers buffer-a buffer-b)
-                                   (with-current-buffer buffer-a (save-buffer))
-                                   (org-ai-on-project--remove-org-ai-file state file-name org-ai-file)
-                                   (org-ai-on-project--render state))))
+                     :notify (lambda (&rest ignore) (org-ai-on-project--patch-file state file))
                      "Patch")
       (widget-insert " ")
 
@@ -502,7 +554,14 @@ STATE is `org-ai-on-project--state'."
                            (setf (org-ai-on-project--state-modify-code state)
                                  (widget-value widget)))
                  (org-ai-on-project--state-modify-code state))
+  (widget-insert "\n")
 
+  (widget-insert "Request diffs: ")
+  (widget-create 'checkbox
+                 :notify (lambda (widget &rest ignore)
+                           (setf (org-ai-on-project--state-modify-with-diffs state)
+                                 org-ai-on-project-modify-with-diffs))
+                 (org-ai-on-project--state-modify-with-diffs state))
   (widget-insert "\n\n")
 
   (widget-create 'push-button
@@ -600,7 +659,9 @@ requested) or we:
   (let ((buf (get-buffer-create org-ai-on-project--result-buffer-name))
         (prompt (org-ai-on-project--state-prompt state))
         (final-instruction (if (org-ai-on-project--state-modify-code state)
-                               org-ai-on-project-default-modify-prompt
+                               (if (org-ai-on-project--state-modify-with-diffs state)
+                                   org-ai-on-project-modify-with-diff-prompt
+                                 org-ai-on-project-default-modify-prompt)
                              org-ai-on-project-default-request-prompt))
         (files (cl-loop for file in (org-ai-on-project--state-files state)
                         when (org-ai-on-project--file-chosen file)
@@ -732,6 +793,7 @@ your prompt."
           (org-ai-on-project--render state))
       (let ((state (make-org-ai-on-project--state :base-dir dir
                                                   :modify-code t
+                                                  :modify-with-diffs org-ai-on-project-modify-with-diffs
                                                   :file-search-pattern ".*"
                                                   :prompt (if org-ai-on-project--last-state
                                                               (org-ai-on-project--state-prompt org-ai-on-project--last-state)
