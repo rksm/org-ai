@@ -295,7 +295,7 @@ This requires BASE-DIR to be a projectile project."
                  (basic-save-buffer)))
              (kill-buffer backup-buffer)))))))
 
-(defun org-ai-on-project--extract-files-and-code-blocks (&optional start end)
+(defun org-ai-on-project--extract-files-and-code-blocks (&optional start end expect-diffs)
   "Expects that the current buffer shows files and code.
 This should be in the form:
 
@@ -329,10 +329,19 @@ code as values."
                                      (line-end-position)))
                     (forward-line 2)
                     (let ((content-start (point)))
-                      (search-forward "```")
-                      (setq file-content (buffer-substring-no-properties
-                                          content-start
-                                          (line-beginning-position))))
+                      (when expect-diffs
+                        ;; if we parse a diff, we need to ensure that empty lines
+                        ;; have a leading space, otherwise the patching will fail
+                        (cl-loop while (and (not (looking-at "```")) (not (eobp)))
+                                 do (let ((line-string (buffer-substring-no-properties (line-beginning-position) (line-end-position))))
+                                      (when (string-equal line-string "")
+                                        (insert " ")
+                                        (forward-char -1))
+                                      (forward-line 1))))
+                        (search-forward "```")
+                        (setq file-content (buffer-substring-no-properties
+                                            content-start
+                                            (line-beginning-position))))
                     (puthash file-name file-content result)))
       result)))
 
@@ -360,9 +369,11 @@ code as values."
                                      (lambda ()
                                        (message "The patch is invalid: %s" err)))
               (progn
-                (display-buffer-other-frame buffer-a)
+                (goto-char (point-min))
+                (display-buffer buffer-a)
                 (when (y-or-n-p "Apply diff? ")
-                  (diff-apply-hunk)
+                  (diff--iterate-hunks (point-max)
+                                       (lambda (&rest ignore) (diff-apply-hunk)))
                   (org-ai-on-project--remove-org-ai-file state file-name org-ai-file))
                 (kill-buffer buffer-b)
                 (with-current-buffer buffer-a (basic-save-buffer))
@@ -461,27 +472,17 @@ FILE is of type `org-ai-on-project--file`. It is not a string!"
      (setq org-ai-on-project--last-state state)
      (setq-local default-directory base-dir)
 
-     (widget-insert "On project: " base-dir "\n\n")
-     (org-ai-on-project--render-prompt state)
-     (widget-insert "\n")
+     (widget-create 'text :format (concat "%{On project: " base-dir "%}") :sample-face 'header-line)
+     (widget-insert "\n\n")
+
      (org-ai-on-project--render-search-input state)
+     (widget-insert "\n\n")
+     (org-ai-on-project--render-files state)
+     (widget-insert "\n\n\n")
 
-     ;; List files. If we have modifications, offer diff/patch options
-     (let* ((too-many-files-p (> (length files) org-ai-on-project-max-files))
-            (files-limited (if too-many-files-p
-                               (seq-take files org-ai-on-project-max-files)
-                             files)))
-       (if has-modifications-p
-           (cl-loop for file in files
-                    do (org-ai-on-project--render-file-with-modification state file))
-         (cl-loop for file in files
-                  do (org-ai-on-project--render-file-without-modification state file)))
-
-       (when too-many-files-p
-         (widget-insert (format "\nToo many files to display. Showing %s of %s files.\n"
-                                org-ai-on-project-max-files
-                                (length files)))))
-
+     (widget-create 'text :format (concat "%{Prompt" "%}") :sample-face 'header-line)
+     (widget-insert "\n\n")
+     (org-ai-on-project--render-prompt state)
      (widget-insert "\n")
 
      ;; render controls
@@ -499,7 +500,7 @@ FILE is of type `org-ai-on-project--file`. It is not a string!"
   "Render the input prompt.
 STATE is `org-ai-on-project--state'."
   (widget-create 'text
-                 :format "Prompt: %v"
+                 :format "%v"
                  :notify (lambda (widget &rest ignore)
                            (setf (org-ai-on-project--state-prompt state) (widget-value widget)))
                  (or (org-ai-on-project--state-prompt state) "")))
@@ -520,8 +521,47 @@ STATE is `org-ai-on-project--state'."
                                (org-ai-on-project--render state)
                                (goto-char pos)
                                (when org-ai-files (message "Found existing set of .orgai__* files!"))))
-                   "Search")
-    (widget-insert "\n\n")))
+                   "Search")))
+
+(defun org-ai-on-project--render-files (state)
+  "Render the files.
+If we have modifications, offer diff/patch options.
+STATE is `org-ai-on-project--state'."
+  (let* ((files (org-ai-on-project--state-files state))
+         (has-modifications-p (org-ai-on-project--state-org-ai-files state))
+         (too-many-files-p (> (length files) org-ai-on-project-max-files))
+         (files-limited (if too-many-files-p
+                            (seq-take files org-ai-on-project-max-files)
+                          files)))
+    (if has-modifications-p
+        (cl-loop for file in files
+                 do (org-ai-on-project--render-file-with-modification state file))
+      (cl-loop for file in files
+               do (org-ai-on-project--render-file-without-modification state file)))
+
+    (when too-many-files-p
+      (widget-insert (format "\nToo many files to display. Showing %s of %s files.\n"
+                             org-ai-on-project-max-files
+                             (length files)))))
+
+  (widget-insert "\n")
+
+  (widget-create 'push-button
+                 :notify (lambda (&rest ignore)
+                           (cl-loop with files = (org-ai-on-project--state-files state)
+                                    for file in files
+                                    do (setf (org-ai-on-project--file-chosen file) t))
+                           (org-ai-on-project--render state))
+                 "Select all")
+  (widget-insert " ")
+  (widget-create 'push-button
+                 :notify (lambda (&rest ignore)
+                           (cl-loop with files = (org-ai-on-project--state-files state)
+                                    for file in files
+                                    do (setf (org-ai-on-project--file-chosen file) nil))
+                           (org-ai-on-project--render state))
+                 "Select none"))
+
 
 (defun org-ai-on-project--render-file-without-modification (state file)
   (let ((file-name (org-ai-on-project--file-file file))
@@ -589,23 +629,6 @@ FILE is `org-ai-on-project--file'."
 (defun org-ai-on-project--render-without-modification-controls (state)
   "Render some controls.
 STATE is `org-ai-on-project--state'."
-  (widget-create 'push-button
-                 :notify (lambda (&rest ignore)
-                           (cl-loop with files = (org-ai-on-project--state-files state)
-                                    for file in files
-                                    do (setf (org-ai-on-project--file-chosen file) t))
-                           (org-ai-on-project--render state))
-                 "Select all")
-  (widget-insert " ")
-  (widget-create 'push-button
-                 :notify (lambda (&rest ignore)
-                           (cl-loop with files = (org-ai-on-project--state-files state)
-                                    for file in files
-                                    do (setf (org-ai-on-project--file-chosen file) nil))
-                           (org-ai-on-project--render state))
-                 "Select none")
-  (widget-insert "\n\n")
-
   (widget-insert "Modify code: ")
   (widget-create 'checkbox
                  :notify (lambda (widget &rest ignore)
@@ -796,7 +819,8 @@ requested) or we:
 
     ;; extract & write the modified files if the user requested that
     (when (org-ai-on-project--state-modify-code state)
-      (let ((modified (org-ai-on-project--extract-files-and-code-blocks pos (point-max)))
+      (let ((modified (org-ai-on-project--extract-files-and-code-blocks pos (point-max)
+                                                                        (org-ai-on-project--state-modify-with-diffs state)))
             (original-and-modified-files (make-hash-table :test 'equal)))
         (cl-loop for key being the hash-keys of modified
                  using (hash-values value)
