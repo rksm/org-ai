@@ -297,6 +297,7 @@ FILE is of type `org-ai-on-project--file`. It is not a string!"
   (interactive "fSelect file: ")
 
   (let* ((file-path (org-ai-on-project--file-full-path file))
+         (region (org-ai-on-project--file-region file))
          (buf (if-let ((buf (find-buffer-visiting file-path)))
                   (with-current-buffer buf
                     (setq org-ai-on-project--select-region-file-already-open t)
@@ -304,10 +305,13 @@ FILE is of type `org-ai-on-project--file`. It is not a string!"
                 (find-file-literally file-path)
                 (setq org-ai-on-project--select-region-file-already-open nil)
                 (current-buffer))))
-    (with-current-buffer buf
-      (setq org-ai-on-project--select-region-file file)
-      (org-ai-on-project--select-region-mode 1)
-      (message "Select a region then press `C-c C-c'. Cancel with `C-c k'."))))
+    (switch-to-buffer buf)
+    (setq org-ai-on-project--select-region-file file)
+    (org-ai-on-project--select-region-mode 1)
+    (when region
+      (goto-char (car region))
+      (set-mark (cadr region)))
+    (message "Select a region then press `C-c C-c'. Cancel with `C-c k'.")))
 
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -419,6 +423,7 @@ STATE is `org-ai-on-project--state'."
 STATE is `org-ai-on-project--state'.
 FILE is `org-ai-on-project--file'."
   (let* ((file-name (org-ai-on-project--file-file file))
+         (region (org-ai-on-project--file-region file))
          (org-ai-files (org-ai-on-project--state-org-ai-files state))
          (org-ai-file (gethash file-name org-ai-files)))
     (widget-insert file-name " ")
@@ -427,7 +432,12 @@ FILE is `org-ai-on-project--file'."
                        :notify (lambda (&rest ignore)
                                  (let ((buffer-a (find-file-noselect file-name))
                                        (buffer-b (find-file-noselect org-ai-file)))
-                                   (with-current-buffer buffer-a (mark-whole-buffer))
+                                   (with-current-buffer buffer-a
+                                     (if region
+                                         (progn
+                                           (goto-char (car region))
+                                           (set-mark (cadr region)))
+                                       (mark-whole-buffer)))
                                    (with-current-buffer buffer-b (mark-whole-buffer))
                                    (when (org-ai--diff-and-patch-buffers buffer-a buffer-b)
                                      (with-current-buffer buffer-a (save-buffer))
