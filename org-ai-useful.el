@@ -102,13 +102,30 @@ Will always return t if `org-ai-talk-confirm-speech-input' is nil."
                                                     ,prompt)
        (error "Module not loaded: org-ai-talk"))))
 
-(cl-defun org-ai-prompt (prompt &optional &key sys-prompt output-buffer select-output callback)
+(defvar-local org-ai-prompt--last-insertion-point nil)
+
+(defun org-ai-prompt--insert (output-buffer text &optional follow)
+  "Insert `TEXT' in `OUTPUT-BUFFER'.
+`FOLLOW' is whether to move point to the end of the inserted text."
+  (cl-flet ((insert-fn (text)
+              (goto-char org-ai-prompt--last-insertion-point)
+              (let ((inhibit-read-only t))
+                (insert (decode-coding-string text 'utf-8)))
+              (setq org-ai-prompt--last-insertion-point (point))))
+  (with-current-buffer output-buffer
+    (if follow
+        (insert-fn text)
+      (save-excursion
+        (insert-fn text))))))
+
+(cl-defun org-ai-prompt (prompt &optional &key sys-prompt output-buffer select-output follow callback)
   "Prompt for a gpt input, insert the response in current buffer.
 `PROMPT' is the prompt to use.
 `SYS-PROMPT' is the system prompt to use.
 `OUTPUT-BUFFER' is the buffer to insert the response in.
 `SELECT-OUTPUT' is whether to mark the output.
-`CALLBACK' is a function to call after the response is inserted."
+`CALLBACK' is a function to call after the response is inserted.
+`FOLLOW' is whether to move point to the end of the inserted text."
   (interactive
    (list (unless org-ai-talk-spoken-input (read-string "What do you want to know? " nil 'org-ai-prompt-history))))
 
@@ -117,6 +134,8 @@ Will always return t if `org-ai-talk-confirm-speech-input' is nil."
           (start-pos (point)))
       (let* ((sys-input (if sys-prompt (format "[SYS]: %s\n" sys-prompt)))
              (input (format "%s\n[ME]: %s" sys-input prompt)))
+        (with-current-buffer output-buffer
+          (setq org-ai-prompt--last-insertion-point (point)))
         (org-ai-stream-request :messages (org-ai--collect-chat-messages input)
                                :model org-ai-default-chat-model
                                :callback (lambda (response)
@@ -130,8 +149,7 @@ Will always return t if `org-ai-talk-confirm-speech-input' is nil."
                                                      (run-hook-with-args 'org-ai-after-chat-insertion-hook 'role role)))
                                                   ((plist-get delta 'content)
                                                    (let ((text (plist-get delta 'content)))
-                                                     (with-current-buffer output-buffer
-                                                       (insert (decode-coding-string text 'utf-8)))
+                                                     (org-ai-prompt--insert output-buffer text follow)
                                                      (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text)))
                                                   ((plist-get choice 'finish_reason)
                                                    (when select-output
@@ -305,14 +323,16 @@ Will open the diff buffer and return it."
     ;; Normally the diff would popup a new window. That's annoying.
     (set-window-configuration win-config)
     (display-buffer-use-some-window (get-buffer-create "*Diff*") nil)
-    (when (y-or-n-p "Patch?")
-      (pop-to-buffer buffer-a)
-      (delete-region (car reg-A) (cdr reg-A))
-      (insert text-b)
-      (deactivate-mark))
-    (kill-buffer diff-buffer)
-    (kill-buffer buffer-b)
-    (set-window-configuration win-config)))
+    (prog1
+     (when (y-or-n-p "Patch?")
+       (pop-to-buffer buffer-a)
+       (delete-region (car reg-A) (cdr reg-A))
+       (insert text-b)
+       (deactivate-mark)
+       t)
+     (kill-buffer diff-buffer)
+     (kill-buffer buffer-b)
+     (set-window-configuration win-config))))
 
 ;; (let ((buffer-with-selected-code (current-buffer))
 ;;       (output-buffer (get-buffer-create "*org-ai-refactor*")))
