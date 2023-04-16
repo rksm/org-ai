@@ -409,7 +409,14 @@ STATE is `org-ai-on-project--state'."
                    :notify (lambda (widget &rest ignore)
                              (setf (org-ai-on-project--file-chosen file) (not chosen)))
                    chosen)
-    (widget-insert " " file-name " ")
+    (widget-insert " ")
+    (widget-create 'link
+                   :button-prefix ""
+                   :button-suffix ""
+                   :button-face 'widget-field-face
+                   :notify (lambda (&rest ignore) (find-file file-name))
+                   file-name)
+    (widget-insert " ")
     (widget-create 'push-button
                    :notify (lambda (&rest ignore)
                              (org-ai-on-project--select-region-in-file file))
@@ -426,32 +433,47 @@ FILE is `org-ai-on-project--file'."
          (region (org-ai-on-project--file-region file))
          (org-ai-files (org-ai-on-project--state-org-ai-files state))
          (org-ai-file (gethash file-name org-ai-files)))
-    (widget-insert file-name " ")
-    (when org-ai-file
-        (widget-create 'push-button
-                       :notify (lambda (&rest ignore)
-                                 (let ((buffer-a (find-file-noselect file-name))
-                                       (buffer-b (find-file-noselect org-ai-file)))
-                                   (with-current-buffer buffer-a
-                                     (if region
-                                         (progn
-                                           (goto-char (car region))
-                                           (set-mark (cadr region)))
-                                       (mark-whole-buffer)))
-                                   (with-current-buffer buffer-b (mark-whole-buffer))
-                                   (when (org-ai--diff-and-patch-buffers buffer-a buffer-b)
-                                     (with-current-buffer buffer-a (save-buffer))
-                                     (org-ai-on-project--remove-org-ai-file state file-name org-ai-file)
-                                     (org-ai-on-project--render state))))
-                       "Diff & Patch")
 
+    (widget-create 'link
+                   :button-prefix ""
+                   :button-suffix ""
+                   :button-face 'widget-field-face
+                   :notify (lambda (&rest ignore) (find-file file-name))
+                   file-name)
+    (widget-insert " ")
+
+    (when org-ai-file
+      (widget-create 'push-button
+                     :notify (lambda (&rest ignore)
+                               (find-file org-ai-file))
+                     "Show changes")
       (widget-insert " ")
+
+      (widget-create 'push-button
+                     :notify (lambda (&rest ignore)
+                               (let ((buffer-a (find-file-noselect file-name))
+                                     (buffer-b (find-file-noselect org-ai-file)))
+                                 (with-current-buffer buffer-a
+                                   (if region
+                                       (progn
+                                         (goto-char (car region))
+                                         (set-mark (cadr region)))
+                                     (mark-whole-buffer)))
+                                 (with-current-buffer buffer-b (mark-whole-buffer))
+                                 (when (org-ai--diff-and-patch-buffers buffer-a buffer-b)
+                                   (with-current-buffer buffer-a (save-buffer))
+                                   (org-ai-on-project--remove-org-ai-file state file-name org-ai-file)
+                                   (org-ai-on-project--render state))))
+                     "Patch")
+      (widget-insert " ")
+
       (widget-create 'push-button
                      :notify (lambda (&rest ignore)
                                (org-ai-on-project--remove-org-ai-file state file-name org-ai-file)
                                (org-ai-on-project--render state)
                                (beginning-of-line))
                      "Reset"))
+
     (widget-insert "\n")))
 
 (defun org-ai-on-project--render-without-modification-controls (state)
@@ -700,18 +722,21 @@ and optionally select regions inside of the files.
 Those files will then be concatenated and passed to org-ai with
 your prompt."
   (interactive)
-  (if-let* ((buf (get-buffer org-ai-on-project--buffer-name))
-            (state (with-current-buffer buf org-ai-on-project--last-state)))
-      (progn
-        (switch-to-buffer buf)
-        (org-ai-on-project--render state))
-    (let ((state (make-org-ai-on-project--state :base-dir (or base-dir default-directory)
-                                                :modify-code t
-                                                :file-search-pattern ".*"
-                                                :prompt (if org-ai-on-project--last-state
-                                                            (org-ai-on-project--state-prompt org-ai-on-project--last-state)
-                                                          ""))))
-      (org-ai-on-project--do-search state)
-      (org-ai-on-project--render state))))
+  (let ((dir (or base-dir default-directory)))
+    (if-let* ((buf (get-buffer org-ai-on-project--buffer-name))
+              (state (with-current-buffer buf org-ai-on-project--last-state))
+              (last-dir (org-ai-on-project--state-base-dir state))
+              (descendent-p (file-in-directory-p dir last-dir)))
+        (progn
+          (switch-to-buffer buf)
+          (org-ai-on-project--render state))
+      (let ((state (make-org-ai-on-project--state :base-dir dir
+                                                  :modify-code t
+                                                  :file-search-pattern ".*"
+                                                  :prompt (if org-ai-on-project--last-state
+                                                              (org-ai-on-project--state-prompt org-ai-on-project--last-state)
+                                                            ""))))
+        (org-ai-on-project--do-search state)
+        (org-ai-on-project--render state)))))
 
 ;;; org-ai-on-project.el ends here
