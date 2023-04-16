@@ -36,9 +36,10 @@
 
 (cl-defstruct org-ai-on-project--state
   "Entire state of project in the on-project buffer."
-  files
   base-dir
-  pattern
+  file-search-pattern
+  files
+  org-ai-files
   modify-code
   prompt)
 
@@ -62,16 +63,13 @@
 (defvar org-ai-on-project--buffer-name "*org-ai-on-project*"
   "Name of the on-project buffer.")
 
+(defvar org-ai-on-project--result-buffer-name "*org-ai-on-project-result*"
+  "Name of the on-project result buffer.")
+
 (defvar org-ai-on-project--current-request-in-progress nil "")
 
-(defun my-toggle-spinner ()
-  (interactive)
-  (if my-spinner
-      (progn
-        (spinner-stop my-spinner)
-        (setq my-spinner nil))
-    (setq my-spinner (spinner-create 'progress-bar t))
-    (spinner-start my-spinner)))
+(defvar org-ai-on-project--file-prefix ".orgai__"
+  "Prefix used for files created by the responses.")
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; helpers
@@ -105,10 +103,18 @@
                                     collect (string-replace "**/" "" pattern))))
 
     (cl-loop with found-files = nil
+             with found-org-ai-files = (make-hash-table :test #'equal)
              for pattern in patterns
              do (cl-loop for file in (file-expand-wildcards pattern)
+                         with org-ai-file-p
+
+                         do (setq org-ai-file-p (string-match-p org-ai-on-project--file-prefix file))
+                         when (and (file-regular-p file) org-ai-file-p)
+                         do (let ((orig-file (string-replace org-ai-on-project--file-prefix "" file)))
+                              (puthash orig-file file found-org-ai-files))
+
                          when (and (file-regular-p file)
-                                   (not (string-match-p "__org-ai__" file))
+                                   (not org-ai-file-p)
                                    (or (not known-project-files)
                                        (member file known-project-files)))
                          do (push (make-org-ai-on-project--file
@@ -116,7 +122,18 @@
                                    :full-path (expand-file-name file base-dir)
                                    :chosen t)
                                   found-files))
-             finally return (nreverse found-files))))
+
+             finally return (cons
+                             (nreverse found-files)
+                             (unless (hash-table-empty-p found-org-ai-files) found-org-ai-files)))))
+
+(defun org-ai-on-project--do-search (state)
+  (let* ((base-dir (org-ai-on-project--state-base-dir state))
+         (pattern (org-ai-on-project--state-file-search-pattern state))
+         (search-result (org-ai-on-project--find-files base-dir pattern)))
+    (cl-destructuring-bind (files . org-ai-files) search-result
+      (setf (org-ai-on-project--state-files state) files)
+      (setf (org-ai-on-project--state-org-ai-files state) org-ai-files))))
 
 (defun org-ai-on-project--get-file-content (file)
   "Read the content of FILE and return it as a string."
@@ -247,80 +264,147 @@ FILE is of type `org-ai-on-project--file`. It is not a string!"
 (defun org-ai-on-project--render (state)
   (let ((base-dir (org-ai-on-project--state-base-dir state))
         (files (org-ai-on-project--state-files state))
-        (pattern (org-ai-on-project--state-pattern state))
+        (org-ai-files (org-ai-on-project--state-org-ai-files state))
+        (pattern (org-ai-on-project--state-file-search-pattern state))
         (prompt (org-ai-on-project--state-prompt state)))
 
     (with-on-project-buffer
-      (setq org-ai-on-project--current-state state)
+     (setq org-ai-on-project--current-state state)
+     (setq-local default-directory base-dir)
 
-      (widget-insert "On project: " base-dir "\n\n")
+     (widget-insert "On project: " base-dir "\n\n")
 
-      (widget-create 'text
-                     :format "Prompt: %v"
-                     :notify (lambda (widget &rest ignore)
-                               (setf (org-ai-on-project--state-prompt state)
-                                     (widget-value widget)))
-                     (or (org-ai-on-project--state-prompt state) ""))
+     (widget-create 'text
+                    :format "Prompt: %v"
+                    :notify (lambda (widget &rest ignore)
+                              (let ((new-prompt (widget-value widget)))
+                                (setf (org-ai-on-project--state-prompt state) new-prompt)
+                                (setq prompt new-prompt)))
+                    (or (org-ai-on-project--state-prompt state) ""))
 
-      (widget-insert "\n\n")
+     (widget-insert "\n\n")
 
-      (widget-create 'editable-field
-		     :size 70
-		     :format "Files: %v " ; Text after the field!
-		     pattern)
 
-      (widget-create 'push-button
-                     :notify (lambda (&rest ignore)
-                               (widget-backward 1)
-                               (let* ((pos (point))
-                                      (pattern (widget-value (widget-at (point))))
-                                      (files (org-ai-on-project--find-files base-dir pattern)))
-                                 (org-ai-on-project--render
-                                  (make-org-ai-on-project--state :files files
-                                                                 :base-dir base-dir
-                                                                 :pattern pattern
-                                                                 :prompt prompt))
-                                 (goto-char pos)))
-                     "Search")
-      (widget-insert "\n\n")
+     (if org-ai-files
+         (progn
+           (widget-insert "Files:\n\n")
+           (cl-loop for file in files
+                    do (let* ((file-name (org-ai-on-project--file-file file))
+                              (org-ai-file (gethash file-name org-ai-files)))
+                         (widget-insert file-name " ")
+                         (when org-ai-file
+                           (widget-create 'push-button
+                                          :notify (lambda (&rest ignore)
+                                                    (message "a: %s b: %s" file-name org-ai-file)
+                                                    (let ((buffer-a (find-file-noselect file-name))
+                                                          (buffer-b (find-file-noselect org-ai-file)))
+                                                      (with-current-buffer buffer-a (mark-whole-buffer))
+                                                      (with-current-buffer buffer-b (mark-whole-buffer))
+                                                      (when (org-ai--diff-and-patch-buffers buffer-a buffer-b)
+                                                        (with-current-buffer buffer-a (save-buffer))
+                                                        (org-ai-on-project--remove-org-ai-file state file-name org-ai-file)
+                                                        (org-ai-on-project--render state))))
+                                          "Diff & Patch")
 
-      (cl-loop for file in files
-               do (lexical-let ((file file))
-                    (widget-create 'checkbox
-                                   :notify (lambda (widget &rest ignore)
-                                             (setf (org-ai-on-project--file-chosen file) (widget-value widget)))
-                                   (org-ai-on-project--file-chosen file))
-                    (widget-insert " " (org-ai-on-project--file-file file) " ")
-                    (widget-create 'push-button
-                                   :notify (lambda (&rest ignore)
-                                             (org-ai-on-project--select-region-in-file file))
-                                   (if-let ((region (org-ai-on-project--file-region file)))
-                                       (format "%s-%s" (car region) (cadr region))
-                                     "entire file"))
-                    (widget-insert "\n")))
+                           (widget-insert " ")
 
-      (widget-insert "\n\n")
+                           (widget-create 'push-button
+                                          :notify (lambda (&rest ignore)
+                                                    (org-ai-on-project--remove-org-ai-file state file-name org-ai-file)
+                                                    (org-ai-on-project--render state))
+                                          "Reset"))
+                         (widget-insert "\n"))))
+       (progn
+         (widget-create 'editable-field
+		        :size 40
+		        :format "Files: %v "    ; Text after the field!
+		        pattern)
 
-      (widget-insert "Modify code: ")
-      (widget-create 'checkbox
-                     :notify (lambda (widget &rest ignore)
-                               (setf (org-ai-on-project--state-modify-code state)
-                                     (widget-value widget)))
-                     (org-ai-on-project--state-modify-code state))
+         (widget-create 'push-button
+                        :notify (lambda (&rest ignore)
+                                  (widget-backward 1)
+                                  (let ((pos (point))
+                                         (pattern (widget-value (widget-at (point)))))
+                                    (setf (org-ai-on-project--state-file-search-pattern state) pattern)
+                                    (org-ai-on-project--do-search state)
+                                    (org-ai-on-project--render state)
+                                    (goto-char pos)
+                                    (when org-ai-files (message "Found existing set of .orgai__* files!"))))
+                        "Search")
+         (widget-insert "\n\n")
 
-      (widget-insert "\n\n")
+         (cl-loop for file in files
+                  do (progn
+                       (widget-create 'checkbox
+                                      :notify (lambda (widget &rest ignore)
+                                                (setf (org-ai-on-project--file-chosen file) (widget-value widget)))
+                                      (org-ai-on-project--file-chosen file))
+                       (widget-insert " " (org-ai-on-project--file-file file) " ")
+                       (widget-create 'push-button
+                                      :notify (lambda (&rest ignore)
+                                                (org-ai-on-project--select-region-in-file file))
+                                      (if-let ((region (org-ai-on-project--file-region file)))
+                                          (format "%s-%s" (car region) (cadr region))
+                                        "entire file"))
+                       (widget-insert "\n")))
 
-      (widget-create 'push-button
-                     :notify (lambda (&rest ignore)
-                               (org-ai-on-project--run state))
-                     "OK")
+         (widget-insert "\n\n")
 
-      (widget-insert " ")
+         (widget-insert "Modify code: ")
+         (widget-create 'checkbox
+                        :notify (lambda (widget &rest ignore)
+                                  (setf (org-ai-on-project--state-modify-code state)
+                                        (widget-value widget)))
+                        (org-ai-on-project--state-modify-code state))))
 
-      (widget-create 'push-button
-                     :notify (lambda (&rest ignore) (kill-buffer))
-                     "Cancel")
-      )))
+     (widget-insert "\n\n")
+
+     (if org-ai-files
+         (progn
+           (widget-create 'push-button
+                          :notify (lambda (&rest ignore)
+                                    (org-ai-on-project--remove-org-ai-files state)
+                                    (org-ai-on-project--run state))
+                          "Run again")
+
+           (widget-insert "\n\n")
+
+           (widget-create 'push-button
+                          :notify (lambda (&rest ignore)
+                                    (org-ai-on-project--run state))
+                          "Diff all")
+
+           (widget-insert " ")
+
+           (widget-create 'push-button
+                          :notify (lambda (&rest ignore)
+                                    (org-ai-on-project--run state))
+                          "Patch all")
+
+           (widget-insert "\n\n")
+
+           (widget-create 'push-button
+                          :notify (lambda (&rest ignore)
+                                    (when (and org-ai-files (y-or-n-p "Discard changes?"))
+                                      (org-ai-on-project--remove-org-ai-files state)
+                                      (org-ai-on-project--render state)))
+                          "Reset"))
+
+       (widget-create 'push-button
+                      :notify (lambda (&rest ignore)
+                                (org-ai-on-project--run state))
+                      "Run"))
+
+     (widget-insert " ")
+
+     (widget-create 'push-button
+                    :notify (lambda (&rest ignore)
+                              (when (or (not org-ai-files) (y-or-n-p "Discard changes?"))
+                                (org-ai-on-project--remove-org-ai-files state)
+                                (kill-buffer)))
+                    "Quit")
+
+     )))
 
 (defun org-ai-on-project--self-insert-command (N)
   "Helper for buffer commands."
@@ -358,15 +442,15 @@ FILE is of type `org-ai-on-project--file`. It is not a string!"
   "In the following, I will show you a request and a list of file names together with their content. The files belong to the same project. I want you to answer the request using the file contents.
 
 Here is the request:
-I want you to <ENTER YOUR REQUEST HERE>
+%s
 
 Here are the files:"
-  "Default prompt for org-ai-on-project."
+  "Default prompt for `org-ai-on-project' in which to embed the users request in."
   :type 'string
   :group 'org-ai-on-project)
 
 (defcustom org-ai-on-project-default-modify-prompt
-  "Now modify the code according to the request. Show it in the same format, file name followed by content. Leave out any files that you did not modify. You can add new files or split existing ones if necessary. Do not at any explanation whatsoever."
+  "Now modify the code according to the request. Show it in the same format, file name followed by content. Leave out any files that you did not modify. You can add new files or split existing ones if necessary. Do not at any explanation whatsoever. DO NOT ADD ANYTHING EXCEPT THE FILE NAMES AND THEIR CONTENTS!"
   "Default prompt for org-ai-on-project."
   :type 'string
   :group 'org-ai-on-project)
@@ -381,18 +465,39 @@ Here are the files:"
   "If non-nil, use streaming to get the result.")
 
 (defun org-ai-on-project--run (state)
-  ""
-  (let ((buf (get-buffer-create "*org-ai-on-project-result*"))
+  "Takes the current STATE and runs the AI on it.
+This will open a result
+buffer (`org-ai-on-project--result-buffer-name') and insert the
+full prompt as well as the result in there. Once this is done, we
+either leave the result buffer around (no file modifications
+requested) or we:
+1. extract the modified file contents from the AI response,
+2. create local files in the directory alongside the original
+   files, prefixed with `org-ai-on-project--modified-file-prefix',
+3. go back to the on-project
+   buffer (`org-ai-on-project--buffer-name') and allow the user
+   to inspect the changes."
+  (let ((buf (get-buffer-create org-ai-on-project--result-buffer-name))
+        (prompt (org-ai-on-project--state-prompt state))
         (final-instruction (if (org-ai-on-project--state-modify-code state)
                                org-ai-on-project-default-modify-prompt
                              org-ai-on-project-default-request-prompt))
         (files (cl-loop for file in (org-ai-on-project--state-files state)
                         when (org-ai-on-project--file-chosen file)
                         collect file)))
+
+    (unless files
+      (error "No files selected"))
+    (unless prompt
+      (error "No prompt"))
+
     (with-current-buffer buf
+      (setq-local default-directory (org-ai-on-project--state-base-dir state))
       (toggle-truncate-lines -1)
       (erase-buffer)
-      (insert (org-ai-on-project--state-prompt state))
+
+      ;; insert the full prompt and the selected files + their content
+      (insert (format org-ai-on-project-default-prompt prompt))
       (insert "\n")
       (cl-loop for file in files
                do (let ((content (org-ai-on-project--get-file-content file))
@@ -400,34 +505,38 @@ Here are the files:"
                     (insert file "\n")
                     (insert "```\n")
                     (insert content)
+                    (unless (string-suffix-p "\n" content) (insert "\n"))
                     (insert "```\n\n")))
       (insert final-instruction "\n\n")
-    (switch-to-buffer buf)
-    (recenter-top-bottom 1)
+      (switch-to-buffer buf)
+      (recenter-top-bottom 1))
 
-    (let* ((prompt (buffer-string))
-           (buf (current-buffer))
+    ;; now run the AI model on it
+    (let* ((prompt (with-current-buffer buf (buffer-string)))
+
            (response-buffer (if org-ai-on-project-use-stream
                                 (org-ai-prompt prompt
-                                               :output-buffer (current-buffer)
+                                               :follow t
+                                               :output-buffer buf
                                                :callback (lambda ()
-                                                           (with-current-buffer buf
-                                                             (org-ai-on-project--request-cleanup))))
+                                                           (when-let ((request (org-ai-on-project--request-cleanup)))
+                                                             (org-ai-on-project--run-done request))))
                               (org-ai-chat-request
                                :messages (org-ai--collect-chat-messages prompt)
                                :model org-ai-default-chat-model
                                :callback (lambda (content role usage)
                                            (with-current-buffer buf
-                                             (save-excursion
-                                               (insert content))
-                                             (org-ai-on-project--request-cleanup)))))))
+                                             (save-excursion (insert content))
+                                             (when-let ((request (org-ai-on-project--request-cleanup)))
+                                               (org-ai-on-project--run-done request)))))))
 
-      (setq org-ai-on-project--current-request-in-progress
-            (make-org-ai-on-project--request-in-progress
-             :state state
-             :start-pos (point)
-             :spinner (spinner-start 'progress-bar)
-             :url-response-buffer response-buffer))))))
+           (request (make-org-ai-on-project--request-in-progress
+                     :state state
+                     :start-pos (point)
+                     :spinner (spinner-start 'progress-bar)
+                     :url-response-buffer response-buffer)))
+
+      (setq org-ai-on-project--current-request-in-progress request))))
 
 (defun org-ai-on-project--request-cleanup ()
   ""
@@ -436,15 +545,62 @@ Here are the files:"
     ;; (display-buffer (org-ai-on-project--request-in-progress-url-response-buffer current))
     (unless org-ai-on-project-use-stream
       (kill-buffer (org-ai-on-project--request-in-progress-url-response-buffer current)))
-    ;;(setq org-ai-on-project--current-request-in-progress nil)
-    ))
+    (setq org-ai-on-project--current-request-in-progress nil)
+    current))
+
+(defun org-ai-on-project--run-done (request)
+  ""
+  (let ((pos (org-ai-on-project--request-in-progress-start-pos request))
+        (state (org-ai-on-project--request-in-progress-state request)))
+    (goto-char pos)
+
+    ;; extract & write the modified files if the user requested that
+    (when (org-ai-on-project--state-modify-code state)
+      (let ((modified (org-ai-on-project--extract-files-and-code-blocks))
+            (original-and-modified-files (make-hash-table :test 'equal)))
+        (cl-loop for key being the hash-keys of modified
+                 using (hash-values value)
+                 ;; for each file, create a __org-ai__ file that contains the modified content
+                 do (let ((modified-file (replace-regexp-in-string
+                                          "\\(.*/\\)?\\(.*\\)"
+                                          (concat "\\1" org-ai-on-project--file-prefix "\\2")
+                                          key)))
+                      (puthash key modified-file original-and-modified-files)
+                      (with-temp-file modified-file
+                        (insert value))))
+        (setf (org-ai-on-project--state-org-ai-files state) original-and-modified-files)
+        (bury-buffer)
+        (switch-to-buffer org-ai-on-project--buffer-name)
+        (org-ai-on-project--render state)))))
+
+(defun org-ai-on-project--remove-org-ai-files (state)
+  "Remove all the .orgai__* files created by org-ai-on-project."
+  (when-let (org-ai-files (org-ai-on-project--state-org-ai-files state))
+    (cl-loop for key being the hash-keys of org-ai-files
+             using (hash-values value)
+             do (when (file-exists-p value)
+                  (delete-file value)))
+    (setf (org-ai-on-project--state-org-ai-files state) nil)
+    t))
+
+(defun org-ai-on-project--remove-org-ai-file (state orig-file org-ai-file)
+  "Remove all the .orgai__* files created by org-ai-on-project."
+  (when-let (org-ai-files (org-ai-on-project--state-org-ai-files state))
+    (remhash orig-file org-ai-files)
+    (when (file-exists-p org-ai-file)
+      (delete-file org-ai-file))
+    (when (hash-table-empty-p org-ai-files)
+      (setf (org-ai-on-project--state-org-ai-files state) nil))
+    t))
 
 
 
 (comment
   org-ai-on-project--current-request-in-progress
 
-  (with-current-buffer "*org-ai-on-project-result*"
+  ;; (replace-regexp-in-string "\\(.*/\\)?\\(.*\\)" (concat "\\1" org-ai-on-project--file-prefix "\\2") "foo/bar/baz.txt")
+
+  (with-current-buffer org-ai-on-project--result-buffer-name
     (let ((pos (org-ai-on-project--request-in-progress-start-pos org-ai-on-project--current-request-in-progress)))
       (goto-char pos)
       (let ((modified (org-ai-on-project--extract-files-and-code-blocks))
@@ -452,11 +608,17 @@ Here are the files:"
         (cl-loop for key being the hash-keys of modified
                  using (hash-values value)
                  ;; for each file, create a __org-ai__ file that contains the modified content
-                 do (let ((modified-file (replace-regexp-in-string "\\(.*/\\)?\\(.*\\)" "\\1__org-ai__\\2" key)))
+                 do (let ((modified-file (replace-regexp-in-string
+                                          "\\(.*/\\)?\\(.*\\)"
+                                          (concat "\\1" org-ai-on-project--file-prefix "\\2")
+                                          key)))
                       (puthash key modified-file original-and-modified-files)
                       (with-temp-file modified-file
                         (insert value))))
-        (setq xxx original-and-modified-files))))
+        (setf (org-ai-on-project--state-org-ai-files state) original-and-modified-files)
+        (bury-buffer)
+        (switch-to-buffer org-ai-on-project--buffer-name)
+        (org-ai-on-project--render state))))
 
 
   (hash-table-keys xxx)
@@ -479,10 +641,15 @@ and optionally select regions inside of the files.
 Those files will then be concatenated and passed to org-ai with
 your prompt."
   (interactive)
-  (org-ai-on-project--render
-   (make-org-ai-on-project--state :files nil
-                                  :base-dir (or base-dir default-directory)
-                                  :pattern "**/*"
-                                  :prompt org-ai-on-project-default-prompt)))
+  (if-let* ((buf (get-buffer org-ai-on-project--buffer-name))
+            (state (with-current-buffer buf org-ai-on-project--current-state)))
+      (progn
+        (switch-to-buffer buf)
+        (org-ai-on-project--render state))
+    (let ((state (make-org-ai-on-project--state :base-dir (or base-dir default-directory)
+                                                :file-search-pattern "**/*"
+                                                :prompt "")))
+      (org-ai-on-project--do-search state)
+      (org-ai-on-project--render state))))
 
 ;;; org-ai-on-project.el ends here
