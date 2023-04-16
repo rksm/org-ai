@@ -283,7 +283,7 @@ FILE is of type `org-ai-on-project--file`. It is not a string!"
          (cl-loop for file in files
                   do (org-ai-on-project--render-file-without-modification state file))))
 
-     (widget-insert "\n\n")
+     (widget-insert "\n")
 
      ;; render controls
      (if has-modifications-p
@@ -373,6 +373,23 @@ FILE is `org-ai-on-project--file'."
 (defun org-ai-on-project--render-without-modification-controls (state)
   "Render some controls.
 STATE is `org-ai-on-project--state'."
+  (widget-create 'push-button
+                 :notify (lambda (&rest ignore)
+                           (cl-loop with files = (org-ai-on-project--state-files state)
+                                    for file in files
+                                    do (setf (org-ai-on-project--file-chosen file) t))
+                           (org-ai-on-project--render state))
+                 "Select all")
+  (widget-insert " ")
+  (widget-create 'push-button
+                 :notify (lambda (&rest ignore)
+                           (cl-loop with files = (org-ai-on-project--state-files state)
+                                    for file in files
+                                    do (setf (org-ai-on-project--file-chosen file) nil))
+                           (org-ai-on-project--render state))
+                 "Select none")
+  (widget-insert "\n\n")
+
   (widget-insert "Modify code: ")
   (widget-create 'checkbox
                  :notify (lambda (widget &rest ignore)
