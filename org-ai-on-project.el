@@ -40,7 +40,14 @@
 Here is the request:
 %s
 
-Here are the files:"
+The files are shown in the format
+<FILENAME>
+```
+<FILE CONTENTS>
+```
+
+Here are the files:
+"
   "Default prompt for `org-ai-on-project' in which to embed the users request in."
   :type 'string
   :group 'org-ai-on-project)
@@ -52,10 +59,12 @@ Here are the files:"
   :group 'org-ai-on-project)
 
 (defcustom org-ai-on-project-modify-with-diff-prompt
-  "Now modify the code according to the request. Skip any files that you did not modify. Output the modifications as unified diffs in the format:
-filename
+  "Now modify the code according to the request. Skip any files that you did not modify. Output the modifications as valid unified diffs in the format:
+<FILENAME>
 ```
-diff
+--- <FILENAME>
++++ <FILENAME>
+<CHANGES>
 ```
 Ensure that the diff is valid. Do not add any explanation whatsoever. DO NOT ADD ANYTHING EXCEPT THE FILE NAMES AND THEIR CONTENTS!"
   "Default prompt for org-ai-on-project."
@@ -232,19 +241,59 @@ This requires BASE-DIR to be a projectile project."
          start end)
     (with-temp-buffer
       (insert-file-contents full-path)
+      (goto-char (point-max))
       ;; ensure newline at end
       (unless (looking-back "\n")
         (insert "\n")
         ;; ensure the original file has it as well, otherwise we can get issues
         ;; with patching
-        (write-region (point-min) (point-max) full-path nil 'silent)))
+        (write-region (point-min) (point-max) full-path nil 'silent))
       (goto-char (or region-start (point-min)))
       (beginning-of-line)
       (setq start (point))
-      (goto-char (or region-start (point-max)))
+      (goto-char (or region-end (point-max)))
       (end-of-line)
       (setq end (point))
-      (buffer-substring-no-properties start end)))
+      (buffer-substring-no-properties start end))))
+
+(defmacro org-ai-on-on-project--do-only-with-selected-file-content (file &rest body)
+  ""
+  (declare (indent 1) (debug t))
+  `(let* ((region (org-ai-on-project--file-region ,file))
+          (full-path (org-ai-on-project--file-full-path ,file))
+          (file-buffer (find-file-noselect full-path)))
+     (if (not region)
+         (with-current-buffer file-buffer ,@body)
+       (let ((selected-content (org-ai-on-project--get-file-content ,file))
+             (backup-buffer (get-buffer-create "*org-ai-on-project--patch-helper*")))
+         (with-current-buffer backup-buffer
+           (erase-buffer)
+           (insert-file-contents (org-ai-on-project--file-full-path ,file)))
+         (unwind-protect
+             (with-current-buffer file-buffer
+               (erase-buffer)
+               (insert selected-content)
+               (basic-save-buffer)
+               ,@body
+               (with-current-buffer file-buffer
+                 (let ((new-content (buffer-string)))
+                   (with-current-buffer backup-buffer
+                     (goto-char (car region))
+                     (beginning-of-line)
+                     (setq start (point))
+                     (goto-char (cadr region))
+                     (end-of-line)
+                     (setq end (point))
+                     (delete-region start end)
+                     (goto-char start)
+                     (insert new-content)))))
+           (with-current-buffer backup-buffer
+             (let ((content (buffer-string)))
+               (with-current-buffer file-buffer
+                 (erase-buffer)
+                 (insert content)
+                 (basic-save-buffer)))
+             (kill-buffer backup-buffer)))))))
 
 (defun org-ai-on-project--extract-files-and-code-blocks (&optional start end)
   "Expects that the current buffer shows files and code.
@@ -296,20 +345,29 @@ code as values."
          (buffer-b (find-file-noselect org-ai-file)))
 
     (if has-diff-p
-        (let ((win-config (current-window-configuration)))
-          (switch-to-buffer buffer-b)
-          (diff-mode)
-          (if (not (diff-test-hunk))
-              (error "Diff cannot be applied")
+        (let* ((win-config (current-window-configuration)))
+          (org-ai-on-on-project--do-only-with-selected-file-content file
+            (switch-to-buffer buffer-b)
+            (diff-mode)
+            (if-let ((err (condition-case err
+                              (progn
+                                (diff-fixup-modifs (point-min) (point-max))
+                                (basic-save-buffer)
+                                (diff-test-hunk)
+                                nil)
+                            (error err))))
+                (run-with-idle-timer 0.1 nil
+                                     (lambda ()
+                                       (message "The patch is invalid: %s" err)))
               (progn
                 (display-buffer-other-frame buffer-a)
                 (when (y-or-n-p "Apply diff? ")
                   (diff-apply-hunk)
                   (org-ai-on-project--remove-org-ai-file state file-name org-ai-file))
                 (kill-buffer buffer-b)
-                (with-current-buffer buffer-a (save-buffer))
+                (with-current-buffer buffer-a (basic-save-buffer))
                 (set-window-configuration win-config)
-                (org-ai-on-project--render state))))
+                (org-ai-on-project--render state)))))
 
       (with-current-buffer buffer-a
         (if region
@@ -319,7 +377,7 @@ code as values."
           (mark-whole-buffer)))
       (with-current-buffer buffer-b (mark-whole-buffer))
       (when (org-ai--diff-and-patch-buffers buffer-a buffer-b)
-        (with-current-buffer buffer-a (save-buffer))
+        (with-current-buffer buffer-a (basic-save-buffer))
         (org-ai-on-project--remove-org-ai-file state file-name org-ai-file)
         (org-ai-on-project--render state)))))
 
