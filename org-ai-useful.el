@@ -305,7 +305,7 @@ Here is the code snippet:
                                                 (org-ai--diff-and-patch-buffers buffer-with-selected-code output-buffer)
                                                 (set-window-configuration win-config)))))))
 
-(defun org-ai--diff-and-patch-buffers (buffer-a buffer-b)
+(defun org-ai--diff-and-patch-buffers (buffer-a buffer-b &optional file-name)
   "Will diff `BUFFER-A' and `BUFFER-B' and and offer to patch'.
 `BUFFER-A' is the first buffer.
 `BUFFER-B' is the second buffer.
@@ -320,6 +320,9 @@ Will open the diff buffer and return it."
                    (buffer-substring-no-properties (car reg-B) (cdr reg-B))))
          (win-config (current-window-configuration))
          (diff-buffer (org-ai--diff-strings text-a text-b)))
+    (when file-name
+      (with-current-buffer diff-buffer
+        (org-ai--diff-rename-files file-name file-name)))
     ;; Normally the diff would popup a new window. That's annoying.
     (set-window-configuration win-config)
     (display-buffer-use-some-window (get-buffer-create "*Diff*") nil)
@@ -333,6 +336,31 @@ Will open the diff buffer and return it."
      (kill-buffer diff-buffer)
      (kill-buffer buffer-b)
      (set-window-configuration win-config))))
+
+(defun org-ai--diff-rename-files (file-name-a file-name-b &optional diff-header-start)
+  "Will rename the files of the first file block of a diff buffer.
+E.g. will rename file-a.txt and file-b.txt to the specified names.
+    diff -u file-a.txt file-b.txt
+    --- file-a.txt	2023-04-17 01:48:47
+    +++ file-b.txt	2023-04-17 01:48:47
+Note: This expects only hunks of a single file."
+  (let ((diff-header-start (or diff-header-start "diff -u "))
+        (inhibit-read-only t))
+    (save-excursion
+      (let (start end file-name-1 file-name-2)
+        (goto-char (point-min))
+        (search-forward diff-header-start)
+
+        (setq start (point))
+        (search-forward " ")
+        (setq file-name-1 (buffer-substring start (- (point) 1)))
+        (setq file-name-2 (buffer-substring (point) (line-end-position)))
+        (list file-name-1 file-name-2)
+
+        (goto-char (point-min))
+        (replace-string file-name-1 file-name-a)
+        (goto-char (point-min))
+        (replace-string file-name-2 file-name-b)))))
 
 ;; (let ((buffer-with-selected-code (current-buffer))
 ;;       (output-buffer (get-buffer-create "*org-ai-refactor*")))

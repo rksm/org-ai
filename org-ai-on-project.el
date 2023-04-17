@@ -72,7 +72,7 @@ Ensure that the diff is valid. Do not add any explanation whatsoever. DO NOT ADD
   :group 'org-ai-on-project)
 
 (defcustom org-ai-on-project-modify-with-diffs
-  t
+  nil
   "If non-nil, request that the model generate diffs.
 This will be a lot faster because the model does not have to
 replicate the entire file. But it also might lead to invalid
@@ -168,8 +168,7 @@ This requires BASE-DIR to be a projectile project."
                      (string-match-p regexp file))
            do (push (make-org-ai-on-project--file
                      :file file
-                     :full-path (expand-file-name file project-dir)
-                     :chosen t)
+                     :full-path (expand-file-name file project-dir))
                     found-files)
 
            finally return (cons
@@ -215,8 +214,7 @@ This requires BASE-DIR to be a projectile project."
 
              do (push (make-org-ai-on-project--file
                        :file file
-                       :full-path (expand-file-name file base-dir)
-                       :chosen t)
+                       :full-path (expand-file-name file base-dir))
                       found-files)
 
              finally return (cons
@@ -381,13 +379,13 @@ code as values."
                 (org-ai-on-project--render state)))))
 
       (with-current-buffer buffer-a
-        (if region
+        (if-let ((region (org-ai-on-project--file-region file)))
             (progn
               (goto-char (car region))
               (set-mark (cadr region)))
           (mark-whole-buffer)))
       (with-current-buffer buffer-b (mark-whole-buffer))
-      (when (org-ai--diff-and-patch-buffers buffer-a buffer-b)
+      (when (org-ai--diff-and-patch-buffers buffer-a buffer-b file-name)
         (with-current-buffer buffer-a (basic-save-buffer))
         (org-ai-on-project--remove-org-ai-file state file-name org-ai-file)
         (org-ai-on-project--render state)))))
@@ -643,6 +641,7 @@ STATE is `org-ai-on-project--state'."
                            (setf (org-ai-on-project--state-modify-with-diffs state)
                                  org-ai-on-project-modify-with-diffs))
                  (org-ai-on-project--state-modify-with-diffs state))
+  (widget-insert " (experimental)")
   (widget-insert "\n\n")
 
   (widget-create 'push-button
@@ -832,7 +831,9 @@ requested) or we:
         (setf (org-ai-on-project--state-org-ai-files state) original-and-modified-files)
         (bury-buffer)
         (switch-to-buffer org-ai-on-project--buffer-name)
-        (org-ai-on-project--render state)))))
+        (org-ai-on-project--render state)
+        (goto-char (point-min))
+        (search-forward "Patch" nil t)))))
 
 (defun org-ai-on-project--remove-org-ai-files (state)
   "Remove all the .orgai__* files created by org-ai-on-project."
