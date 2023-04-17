@@ -99,8 +99,13 @@ messages."
 
 (defvar org-ai-openai-completion-endpoint "https://api.openai.com/v1/completions")
 
+(defvar org-ai--current-request-buffer-for-stream nil
+  "Internal var that stores the current request buffer.
+For stream responses.")
+
 (defvar org-ai--current-request-buffer nil
-  "Internal var that stores the current request buffer.")
+  "Internal var that stores the current request buffer.
+For chat completion responses.")
 
 (defvar org-ai--current-request-callback nil
   "Internal var that stores the current request callback.")
@@ -273,64 +278,136 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
 					    :temperature temperature
 					    :top-p top-p
 					    :frequency-penalty frequency-penalty
-					    :presence-penalty presence-penalty)))
+					    :presence-penalty presence-penalty
+                                            :stream t)))
 
-    ;; (message "REQUEST %s" url-request-data)
+    (message "REQUEST %s" url-request-data)
 
     (setq org-ai--current-request-callback callback)
+
+    (setq org-ai--current-request-buffer-for-stream
+          (url-retrieve
+           endpoint
+           (lambda (_events)
+             (org-ai--maybe-show-openai-request-error org-ai--current-request-buffer-for-stream)
+             (org-ai-reset-stream-state))))
+
+    ;; (display-buffer-use-some-window org-ai--current-request-buffer-for-stream nil)
+
+    (unless (member 'org-ai--url-request-on-change-function after-change-functions)
+      (with-current-buffer org-ai--current-request-buffer-for-stream
+        (add-hook 'after-change-functions #'org-ai--url-request-on-change-function nil t)))
+
+    org-ai--current-request-buffer-for-stream))
+
+(cl-defun org-ai-chat-request (&optional &key messages model max-tokens temperature top-p frequency-penalty presence-penalty callback)
+  "Send a request to the OpenAI API. Do not stream.
+`MESSAGES' is the query for chatgpt.
+`CALLBACK' is the callback function.
+`MODEL' is the model to use.
+`MAX-TOKENS' is the maximum number of tokens to generate.
+`TEMPERATURE' is the temperature of the distribution.
+`TOP-P' is the top-p value.
+`FREQUENCY-PENALTY' is the frequency penalty.
+`PRESENCE-PENALTY' is the presence penalty."
+  (unless org-ai-openai-api-token
+    (error "Please set `org-ai-openai-api-token' to your OpenAI API token"))
+  (let* ((token org-ai-openai-api-token)
+         (url-request-extra-headers `(("Authorization" . ,(encode-coding-string (string-join `("Bearer" ,token) " ") 'utf-8))
+                                      ("Content-Type" . "application/json")))
+         (url-request-method "POST")
+         (endpoint (if messages org-ai-openai-chat-endpoint org-ai-openai-completion-endpoint))
+         (url-request-data (org-ai--payload :messages messages
+					    :model model
+					    :max-tokens max-tokens
+					    :temperature temperature
+					    :top-p top-p
+					    :frequency-penalty frequency-penalty
+					    :presence-penalty presence-penalty
+                                            :stream nil)))
+
+    ;; (message "REQUEST %s" url-request-data)
 
     (setq org-ai--current-request-buffer
           (url-retrieve
            endpoint
            (lambda (_events)
-             (org-ai--maybe-show-openai-request-error)
-             (org-ai-reset-stream-state))))
+             (unless (org-ai--maybe-show-openai-request-error
+                      org-ai--current-request-buffer)
+               (when callback
+                 (with-current-buffer org-ai--current-request-buffer
+                   (condition-case err
+                       (progn (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
+                                (goto-char url-http-end-of-headers))
+                              (if-let* ((result (json-read))
+                                        (usage (alist-get 'usage result))
+                                        (choices (alist-get 'choices result))
+                                        (choice (aref choices 0))
+                                        (message (alist-get 'message choice))
+                                        (role (alist-get 'role message))
+                                        (content (alist-get 'content message)))
+                                  (funcall callback content role usage)
+                                (funcall callback nil nil nil)))
+                     (error (org-ai--show-error err)))))))))
 
-    ;; (display-buffer-use-some-window org-ai--current-request-buffer nil)
+    ;;(display-buffer-use-some-window org-ai--current-request-buffer nil)
 
-    (unless (member 'org-ai--url-request-on-change-function after-change-functions)
-      (with-current-buffer org-ai--current-request-buffer
-        (add-hook 'after-change-functions #'org-ai--url-request-on-change-function nil t)))))
+    org-ai--current-request-buffer))
 
+;; (org-ai-chat-request
+;;  :messages (org-ai--collect-chat-messages "Hello, how are you?")
+;;  :model "gpt-4"
+;;  :callback (lambda (content role usage)
+;;              (message "content: %s" content)
+;;              (message "ROLE: %s" role)
+;;              (message "USAGE: %s" usage)))
 
-(defun org-ai--maybe-show-openai-request-error ()
-  "If the API request returned an error, show it."
-  (with-current-buffer org-ai--current-request-buffer
+(defun org-ai--maybe-show-openai-request-error (request-buffer)
+  "If the API request returned an error, show it.
+`REQUEST-BUFFER' is the buffer containing the request."
+  (with-current-buffer request-buffer
     (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
       (goto-char url-http-end-of-headers))
     (condition-case nil
         (let* ((content (buffer-substring-no-properties (point) (point-max)))
                (body (json-read-from-string content)))
           (let* ((err (alist-get 'error body))
-                 (message (or (alist-get 'message err) (json-encode err)))
-                 (buf (get-buffer-create "*org-ai error*")))
-            ;; show error message
-            (with-current-buffer buf
-              (erase-buffer)
-              (insert message)
-              (pop-to-buffer buf)
-              (goto-char (point-min))
-              (toggle-truncate-lines -1)
-              (read-only-mode 1)
-              ;; close buffer when q is pressed
-              (local-set-key (kbd "q") (lambda () (interactive) (kill-buffer-and-window)))
-              t)))
+                 (message (or (alist-get 'message err) (json-encode err))))
+            (org-ai--show-error message)))
       (error nil))))
 
-(cl-defun org-ai--payload (&optional &key prompt messages model max-tokens temperature top-p frequency-penalty presence-penalty)
+(defun org-ai--show-error (error-message)
+  "Show an error message in a buffer.
+`ERROR-MESSAGE' is the error message to show."
+  (condition-case nil
+      (let ((buf (get-buffer-create "*org-ai error*")))
+        (with-current-buffer buf
+          (erase-buffer)
+          (insert error-message)
+          (pop-to-buffer buf)
+          (goto-char (point-min))
+          (toggle-truncate-lines -1)
+          (read-only-mode 1)
+          ;; close buffer when q is pressed
+          (local-set-key (kbd "q") (lambda () (interactive) (kill-buffer-and-window)))
+          t))
+    (error nil)))
+
+(cl-defun org-ai--payload (&optional &key prompt messages model max-tokens temperature top-p frequency-penalty presence-penalty stream)
   "Create the payload for the OpenAI API.
 `PROMPT' is the query for completions `MESSAGES' is the query for
 chatgpt. `MODEL' is the model to use. `MAX-TOKENS' is the
 maximum number of tokens to generate. `TEMPERATURE' is the
 temperature of the distribution. `TOP-P' is the top-p value.
 `FREQUENCY-PENALTY' is the frequency penalty. `PRESENCE-PENALTY'
-is the presence penalty."
+is the presence penalty.
+`STREAM' is a boolean indicating whether to stream the response."
   (let* ((input (if messages `(messages . ,messages) `(prompt . ,prompt)))
          ;; TODO yet unsupported properties: n, stop, logit_bias, user
          (data (map-filter (lambda (x _) x)
                            `(,input
                              (model . ,model)
-                             (stream . t)
+                             ,@(when stream            `((stream . ,stream)))
                              ,@(when max-tokens        `((max_tokens . ,max-tokens)))
                              ,@(when temperature       `((temperature . ,temperature)))
                              ,@(when top-p             `((top_p . ,top-p)))
@@ -343,7 +420,7 @@ is the presence penalty."
 Three arguments are passed to each function: the positions of
 the beginning and end of the range of changed text,
 and the length in chars of the pre-change text replaced by that range."
-  (with-current-buffer org-ai--current-request-buffer
+  (with-current-buffer org-ai--current-request-buffer-for-stream
     (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
       (save-excursion
         (if org-ai--url-buffer-last-position
@@ -391,17 +468,17 @@ and the length in chars of the pre-change text replaced by that range."
 (defun org-ai-interrupt-current-request ()
   "Interrupt the current request."
   (interactive)
-  (when (and org-ai--current-request-buffer (buffer-live-p org-ai--current-request-buffer))
+  (when (and org-ai--current-request-buffer-for-stream (buffer-live-p org-ai--current-request-buffer-for-stream))
     (let (kill-buffer-query-functions)
-      (kill-buffer org-ai--current-request-buffer))
-    (setq org-ai--current-request-buffer nil)
+      (kill-buffer org-ai--current-request-buffer-for-stream))
+    (setq org-ai--current-request-buffer-for-stream nil)
     (org-ai-reset-stream-state)))
 
 (defun org-ai-reset-stream-state ()
   "Reset the stream state."
   (interactive)
-  (when (and org-ai--current-request-buffer (buffer-live-p org-ai--current-request-buffer))
-    (with-current-buffer org-ai--current-request-buffer
+  (when (and org-ai--current-request-buffer-for-stream (buffer-live-p org-ai--current-request-buffer-for-stream))
+    (with-current-buffer org-ai--current-request-buffer-for-stream
       (remove-hook 'after-change-functions #'org-ai--url-request-on-change-function t)
       (setq org-ai--url-buffer-last-position nil)))
   (setq org-ai--current-request-callback nil)
@@ -411,8 +488,8 @@ and the length in chars of the pre-change text replaced by that range."
 (defun org-ai-open-request-buffer ()
   "A debug helper that opens the url request buffer."
   (interactive)
-  (when (buffer-live-p org-ai--current-request-buffer)
-    (pop-to-buffer org-ai--current-request-buffer)))
+  (when (buffer-live-p org-ai--current-request-buffer-for-stream)
+    (pop-to-buffer org-ai--current-request-buffer-for-stream)))
 
 (defun org-ai-switch-chat-model ()
   "Change `org-ai-default-chat-model'."

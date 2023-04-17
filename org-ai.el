@@ -137,6 +137,8 @@ It's designed to \"do the right thing\":
              org-ai-talk--reading-process
              (process-live-p org-ai-talk--reading-process))
         (org-ai-talk-stop))
+       (org-ai--current-request-buffer-for-stream
+        (org-ai-interrupt-current-request))
        (org-ai--current-request-buffer
         (org-ai-interrupt-current-request)))
     (error nil)))
