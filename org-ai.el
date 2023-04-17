@@ -86,6 +86,7 @@
 (require 'org-ai-openai)
 (require 'org-ai-openai-image)
 (require 'org-ai-useful)
+(require 'org-ai-on-project)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
