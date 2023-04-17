@@ -24,7 +24,6 @@
 
 (require 'cl-lib)
 (require 'widget)
-(require 'spinner)
 (require 'org-ai-useful)
 
 (eval-when-compile
@@ -120,8 +119,7 @@ patches."
   "State of the request in progress."
   state
   start-pos
-  url-response-buffer
-  spinner)
+  url-response-buffer)
 
 (defvar-local org-ai-on-project--last-state nil
   "Current state of the on-project buffer.")
@@ -795,7 +793,6 @@ requested) or we:
            (request (make-org-ai-on-project--request-in-progress
                      :state state
                      :start-pos start-pos
-                     :spinner (spinner-start 'progress-bar)
                      :url-response-buffer response-buffer)))
 
       (setq org-ai-on-project--current-request-in-progress request))))
@@ -803,7 +800,6 @@ requested) or we:
 (defun org-ai-on-project--request-cleanup ()
   ""
   (when-let (current org-ai-on-project--current-request-in-progress)
-    (spinner-stop)
     ;; (display-buffer (org-ai-on-project--request-in-progress-url-response-buffer current))
     (unless org-ai-on-project-use-stream
       (kill-buffer (org-ai-on-project--request-in-progress-url-response-buffer current)))
