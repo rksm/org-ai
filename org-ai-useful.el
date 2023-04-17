@@ -183,9 +183,9 @@ argument and returns a prompt.
     (org-ai-prompt full-prompt :output-buffer output-buffer :callback callback)))
 
 
-(defun org-ai--insert-quote-prefix (str)
-  "Prepend all lines in `STR' with '>'."
-  (replace-regexp-in-string "^" "> " str))
+(defun org-ai--prefix-lines (str prefix)
+  "Prepend all lines in `STR' with `PREFIX'."
+  (replace-regexp-in-string "^" prefix str))
 
 (defun org-ai--prompt-on-region-create-text-prompt (user-input text)
   "Create a prompt for `org-ai-on-region'.
@@ -198,9 +198,9 @@ Here is the question:
 
 Here is the text:
 %s
-" (org-ai--insert-quote-prefix user-input) (org-ai--insert-quote-prefix text)))
+" (org-ai--prefix-lines user-input "    ") (org-ai--prefix-lines text "    ")))
 
-(defun org-ai--prompt-on-region-create-code-prompt (user-input text)
+(defun org-ai--prompt-on-region-create-code-prompt (user-input code)
   "Create a prompt for `org-ai-on-region'.
 `USER-INPUT' is the user input like a question to answer.
 `TEXT' is the code of the region."
@@ -211,7 +211,7 @@ Here is the question:
 
 Here is the code snippet:
 %s
-" (org-ai--insert-quote-prefix user-input) (org-ai--insert-quote-prefix text)))
+" user-input code))
 
 (defun org-ai-on-region (start end question &optional buffer-name text-kind)
   "Ask ChatGPT to answer a question based on the selected text.
@@ -284,9 +284,12 @@ Here is the instruction:
 %s
 
 Here is the code snippet:
+```
 %s
-" how (org-ai--insert-quote-prefix code))))
+```
+" how code)))
           (buffer-with-selected-code (current-buffer))
+          (file-name (buffer-file-name))
           (output-buffer (get-buffer-create "*org-ai-refactor*"))
           (win-config (current-window-configuration)))
       (org-ai--on-region-internal start end text-prompt-fn
@@ -302,7 +305,7 @@ Here is the code snippet:
                                                   (push-mark)
                                                   (push-mark (point-max) nil t)
                                                   (goto-char (point-min)))
-                                                (org-ai--diff-and-patch-buffers buffer-with-selected-code output-buffer)
+                                                (org-ai--diff-and-patch-buffers buffer-with-selected-code output-buffer file-name)
                                                 (set-window-configuration win-config)))))))
 
 (defun org-ai--diff-and-patch-buffers (buffer-a buffer-b &optional file-name)
