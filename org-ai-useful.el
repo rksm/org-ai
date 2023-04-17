@@ -203,7 +203,7 @@ Here is the text:
 (defun org-ai--prompt-on-region-create-code-prompt (user-input code)
   "Create a prompt for `org-ai-on-region'.
 `USER-INPUT' is the user input like a question to answer.
-`TEXT' is the code of the region."
+`CODE' is the code of the region."
   (format "In the following I will show you a question and then a code snippet. I want you to answer that question based on the code snippet.
 
 Here is the question:
@@ -312,6 +312,7 @@ Here is the code snippet:
   "Will diff `BUFFER-A' and `BUFFER-B' and and offer to patch'.
 `BUFFER-A' is the first buffer.
 `BUFFER-B' is the second buffer.
+`FILE-NAME' is the optional name of the file to use in the diff buffer header.
 Will open the diff buffer and return it."
   (let* ((reg-A (with-current-buffer buffer-a
                   (cons (region-beginning) (region-end))))
@@ -342,6 +343,10 @@ Will open the diff buffer and return it."
 
 (defun org-ai--diff-rename-files (file-name-a file-name-b &optional diff-header-start)
   "Will rename the files of the first file block of a diff buffer.
+`FILE-NAME-A' is the name of the first file.
+`FILE-NAME-B' is the name of the second file.
+`DIFF-HEADER-START' is the start of the diff header, defaults to \"diff -u \".
+
 E.g. will rename file-a.txt and file-b.txt to the specified names.
     diff -u file-a.txt file-b.txt
     --- file-a.txt	2023-04-17 01:48:47
@@ -350,7 +355,7 @@ Note: This expects only hunks of a single file."
   (let ((diff-header-start (or diff-header-start "diff -u "))
         (inhibit-read-only t))
     (save-excursion
-      (let (start end file-name-1 file-name-2)
+      (let (start file-name-1 file-name-2)
         (goto-char (point-min))
         (search-forward diff-header-start)
 
@@ -361,9 +366,11 @@ Note: This expects only hunks of a single file."
         (list file-name-1 file-name-2)
 
         (goto-char (point-min))
-        (replace-string file-name-1 file-name-a)
+        (while (search-forward file-name-1 nil t)
+          (replace-match file-name-a))
         (goto-char (point-min))
-        (replace-string file-name-2 file-name-b)))))
+        (while (search-forward file-name-2 nil t)
+          (replace-match file-name-b))))))
 
 ;; (let ((buffer-with-selected-code (current-buffer))
 ;;       (output-buffer (get-buffer-create "*org-ai-refactor*")))

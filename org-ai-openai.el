@@ -337,7 +337,8 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
                (when callback
                  (with-current-buffer org-ai--current-request-buffer
                    (condition-case err
-                       (progn (goto-char url-http-end-of-headers)
+                       (progn (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
+                                (goto-char url-http-end-of-headers))
                               (if-let* ((result (json-read))
                                         (usage (alist-get 'usage result))
                                         (choices (alist-get 'choices result))
@@ -362,7 +363,8 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
 ;;              (message "USAGE: %s" usage)))
 
 (defun org-ai--maybe-show-openai-request-error (request-buffer)
-  "If the API request returned an error, show it."
+  "If the API request returned an error, show it.
+`REQUEST-BUFFER' is the buffer containing the request."
   (with-current-buffer request-buffer
     (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
       (goto-char url-http-end-of-headers))
@@ -375,12 +377,13 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
       (error nil))))
 
 (defun org-ai--show-error (error-message)
-  "Show an error message in a buffer."
+  "Show an error message in a buffer.
+`ERROR-MESSAGE' is the error message to show."
   (condition-case nil
       (let ((buf (get-buffer-create "*org-ai error*")))
         (with-current-buffer buf
           (erase-buffer)
-          (insert message)
+          (insert error-message)
           (pop-to-buffer buf)
           (goto-char (point-min))
           (toggle-truncate-lines -1)
@@ -397,7 +400,8 @@ chatgpt. `MODEL' is the model to use. `MAX-TOKENS' is the
 maximum number of tokens to generate. `TEMPERATURE' is the
 temperature of the distribution. `TOP-P' is the top-p value.
 `FREQUENCY-PENALTY' is the frequency penalty. `PRESENCE-PENALTY'
-is the presence penalty."
+is the presence penalty.
+`STREAM' is a boolean indicating whether to stream the response."
   (let* ((input (if messages `(messages . ,messages) `(prompt . ,prompt)))
          ;; TODO yet unsupported properties: n, stop, logit_bias, user
          (data (map-filter (lambda (x _) x)
