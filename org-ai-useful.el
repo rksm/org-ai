@@ -162,7 +162,17 @@ Will always return t if `org-ai-talk-confirm-speech-input' is nil."
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; org-ai-on-region
 
-(cl-defun org-ai--on-region-internal (start end text-prompt-fn &optional &key output-buffer show-output-buffer callback)
+(defcustom org-ai-on-region-file nil
+  "Optional file that used to store the `org-ai-on-region' conversations in.
+If nil, a buffer with no file backing is used. If a file is
+specified, new conversations are appended to the file."
+  :group 'org-ai
+  :type '(choice (const :tag "No file" nil)
+                 (file :tag "File")))
+
+;; (setq org-ai-on-region-file (expand-file-name "org-ai-on-region.org" org-directory))
+
+(cl-defun org-ai--output-to-buffer (start end text-prompt-fn output-buffer &optional &key show-output-buffer callback)
   "Get the currently selected text, create a prompt, insert the response.
 `OUTPUT-BUFFER' is the buffer to insert the response in.
 `TEXT-PROMPT-FN' is a function that takes the selected text as
@@ -173,7 +183,7 @@ argument and returns a prompt.
 `CALLBACK' is a function to call after the response is inserted."
   (let* ((text (encode-coding-string (buffer-substring-no-properties start end) 'utf-8))
          (full-prompt (funcall text-prompt-fn text))
-         (output-buffer (get-buffer-create (or output-buffer "*org-ai-on-region*"))))
+         (output-buffer (get-buffer-create output-buffer)))
     (with-current-buffer output-buffer
       (read-only-mode -1)
       (erase-buffer)
@@ -181,6 +191,57 @@ argument and returns a prompt.
       (when show-output-buffer
         (display-buffer output-buffer)))
     (org-ai-prompt full-prompt :output-buffer output-buffer :callback callback)))
+
+(declare-function org-clock-drawer-name "org-clock")
+(declare-function org-ai-complete-block "org-ai")
+
+(defun org-ai--insert-created-timestamp ()
+  "Add a LOGBOOK entry CREATED with inactive timestamp."
+  (require 'org-clock)
+  (org-insert-drawer nil (org-clock-drawer-name))
+  (insert "CREATED: ")
+  (insert "[" (format-time-string "%F %a %R") "]")
+  (forward-line -1)
+  (org-indent-drawer)
+  (forward-line 3))
+
+(cl-defun org-ai--output-to-org-buffer (start end text-prompt-fn output-buffer &optional &key show-output-buffer)
+  "Get the currently selected text, create a prompt, insert the response.
+`OUTPUT-BUFFER' is the buffer to insert the response in.
+`TEXT-PROMPT-FN' is a function that takes the selected text as
+argument and returns a prompt.
+`START' is the buffer position of the region.
+`END' is the buffer position of the region.
+`OUTPUT-BUFFER' is the name or the buffer to insert the response in.
+`CALLBACK' is a function to call after the response is inserted."
+  (let* ((text (buffer-substring-no-properties start end))
+         (link (org-store-link '(4)))
+         (full-prompt (funcall text-prompt-fn text))
+         (output-buffer (or (get-buffer output-buffer)
+                            (with-current-buffer (get-buffer-create output-buffer)
+                              (org-mode)
+                              (setq truncate-lines nil)
+                              (setq word-wrap t)
+                              (current-buffer)))))
+
+    (when show-output-buffer
+      (select-window (display-buffer output-buffer)))
+
+    (with-current-buffer output-buffer
+      (goto-char (point-max))
+      (switch-to-buffer output-buffer)
+
+      (unless (bobp) (insert "\n\n"))
+      (insert "** ")
+      (if link
+          (insert link)
+        (insert "*org-ai-on-region*"))
+      (insert "\n")
+      (org-ai--insert-created-timestamp)
+      (insert "\n")
+      (insert "#+begin_ai\n" "[ME]: " full-prompt "\n" "#+end_ai\n")
+      (forward-line -1)
+      (org-ai-complete-block))))
 
 
 (defun org-ai--prefix-lines (str prefix)
@@ -233,11 +294,15 @@ be guessed from the current major mode."
                              ('text (lambda (text) (org-ai--prompt-on-region-create-text-prompt question text)))
                              ('code (lambda (text) (org-ai--prompt-on-region-create-code-prompt question text)))
                              (_ (error "Invalid text-kind: %s" text-kind))))
-           (output-buffer (get-buffer-create (or buffer-name "*org-ai-on-region*"))))
-      (org-ai--on-region-internal start end text-prompt-fn
-                                  :output-buffer output-buffer
-                                  :show-output-buffer t
-                                  :callback (lambda () (org-ai-output-mode))))))
+           (output-buffer (or buffer-name
+                              (when org-ai-on-region-file (find-file-noselect org-ai-on-region-file))
+                              "*org-ai-on-region*")))
+      (org-ai--output-to-org-buffer start end text-prompt-fn output-buffer
+                                    :show-output-buffer t
+                                    ;; :callback (lambda ()
+                                    ;;             (when org-ai-on-region-file
+                                    ;;               (save-buffer)))
+                                    ))))
 
 (defcustom org-ai-summarize-prompt "Summarize this text."
   "The template to use for `org-ai-summarize'."
@@ -292,8 +357,7 @@ Here is the code snippet:
           (file-name (buffer-file-name))
           (output-buffer (get-buffer-create "*org-ai-refactor*"))
           (win-config (current-window-configuration)))
-      (org-ai--on-region-internal start end text-prompt-fn
-                                  :output-buffer output-buffer
+      (org-ai--output-to-buffer start end text-prompt-fn output-buffer
                                   :show-output-buffer t
                                   :callback (lambda ()
                                               (progn
