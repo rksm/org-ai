@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0] - 2023-04-17
+### Added
+- `org-ai-on-project`: Offers a new method for running prompts and modifying multiple files at once.
+
+### Changed
+- `org-ai-on-region` (and related functions such as `org-ai-refactor`) do not quote user input with "> " anymore as this could be repeated in the output (see [#30](https://github.com/rksm/org-ai/issues/30))
+- `org-ai-on-region` now outputs both prompt and answer into an `org-mode` buffer. This allows to easily edit the answer and re-run the prompt with `C-c C-c` (see [#29](https://github.com/rksm/org-ai/issues/29)). You can customize the variable `org-ai-on-region-file` to specify a file to store the conversations in. E.g. `(setq org-ai-on-region-file (expand-file-name "org-ai-on-region.org" org-directory))`. New prompts will be appended.
+
 ## [0.2.6] - 2023-04-07
 ### Changed
 - Deactivating read-only mode when reusing the `*org-ai-on-region*` buffer. This blocked repeated on-region requests if the buffer was still open.
