@@ -173,11 +173,15 @@ This uses projectile if it is available. Otherwise it restorts to
                    do (push file raw-files)))
 
       (let ((default-directory base-dir))
-        (setq raw-org-ai-files (cl-loop for file in (directory-files-recursively "." (concat (regexp-quote org-ai-on-project--file-prefix) ".*"))
+        (setq raw-org-ai-files (cl-loop for file in (directory-files-recursively
+                                                     "."
+                                                     (concat (regexp-quote org-ai-on-project--file-prefix) ".*"))
                                         collect (string-remove-prefix "./" file)))
         (cl-loop for file in (directory-files-recursively "." ".*")
+                 with exclude-regex = "\\(?:\\.git\\|\\.DS_Store\\)"
                  do (let ((file (string-remove-prefix "./" file)))
-                      (when (string-match-p regexp file)
+                      (when (and (not (string-match-p exclude-regex file))
+                                 (string-match-p regexp file))
                         (push file raw-files))))))
 
     (cl-loop with found-files = nil

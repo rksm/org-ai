@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1] - 2023-04-17
+### Added
+- `org-ai-on-project`: Load by default.
+
+### Changed
+- with consecutive `org-ai-kill-region-at-point` invocations, append kill in right order ([#32](https://github.com/rksm/org-ai/issues/32))
+
 ## [0.3.0] - 2023-04-17
 ### Added
 - `org-ai-on-project`: Offers a new method for running prompts and modifying multiple files at once.
