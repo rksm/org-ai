@@ -113,8 +113,7 @@ The numeric `ARG' can be used for killing the last n."
   (cl-loop repeat (or arg 1)
            do (when-let ((region (org-ai-mark-region-at-point)))
                 (cl-destructuring-bind (start . end) region
-                  (kill-region start end)
-                  (goto-char start)))))
+                  (kill-region end start)))))
 
 (defun org-ai--collect-chat-messages (content-string &optional default-system-prompt persistant-sys-prompts)
   "Takes `CONTENT-STRING' and splits it by [SYS]:, [ME]: and [AI]: markers.
