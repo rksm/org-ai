@@ -655,14 +655,17 @@ STATE is `org-ai-on-project--state'."
                            (org-ai-on-project--run state))
                  "Run again")
   (widget-insert "\n\n")
-  (widget-create 'push-button
-                 :notify (lambda (&rest _ignore) (org-ai-on-project--run state))
-                 "Diff all")
-  (widget-insert " ")
-  (widget-create 'push-button
-                 :notify (lambda (&rest _ignore) (org-ai-on-project--run state))
-                 "Patch all")
-  (widget-insert "\n\n")
+
+  ;; not yet implemented
+  ;; (widget-create 'push-button
+  ;;                :notify (lambda (&rest _ignore) (org-ai-on-project--run state))
+  ;;                "Diff all")
+  ;; (widget-insert " ")
+  ;; (widget-create 'push-button
+  ;;                :notify (lambda (&rest _ignore) (org-ai-on-project--run state))
+  ;;                "Patch all")
+  ;; (widget-insert "\n\n")
+
   (widget-create 'push-button
                  :notify (lambda (&rest _ignore)
                            (let ((org-ai-files (org-ai-on-project--state-org-ai-files state)))
