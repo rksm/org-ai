@@ -180,26 +180,34 @@ It's designed to \"do the right thing\":
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+(defvar org-ai-global-prefix-map (make-sparse-keymap)
+  "Keymap for `org-ai-global-mode'.")
+
+(let ((map org-ai-global-prefix-map))
+  (define-key map (kbd "p") 'org-ai-on-project)
+  (define-key map (kbd "P") 'org-ai-prompt)
+  (define-key map (kbd "r") 'org-ai-on-region)
+  (define-key map (kbd "c") 'org-ai-refactor-code)
+  (define-key map (kbd "s") 'org-ai-summarize)
+  (define-key map (kbd "m") 'org-ai-switch-chat-model)
+  (define-key map (kbd "!") 'org-ai-open-request-buffer)
+  (define-key map (kbd "$") 'org-ai-open-account-usage-page)
+  (define-key map (kbd "t") 'org-ai-talk-input-toggle)
+  (define-key map (kbd "T") 'org-ai-talk-output-toggle)
+  (define-key map (kbd "R") 'org-ai-talk-read-region)
+  (define-key map (kbd "SPC") 'org-ai-mark-region-at-point))
+
 (defvar org-ai-global-mode-map (make-sparse-keymap)
   "Keymap for `org-ai-global-mode'.")
 
-(let ((map org-ai-global-mode-map))
-  (define-key map (kbd "C-c M-a p") 'org-ai-prompt)
-  (define-key map (kbd "C-c M-a r") 'org-ai-on-region)
-  (define-key map (kbd "C-c M-a c") 'org-ai-refactor-code)
-  (define-key map (kbd "C-c M-a s") 'org-ai-summarize)
-  (define-key map (kbd "C-c M-a m") 'org-ai-switch-chat-model)
-
-  (define-key map (kbd "C-c M-a !") 'org-ai-open-request-buffer)
-  (define-key map (kbd "C-c M-a $") 'org-ai-open-account-usage-page)
-  (define-key map (kbd "C-c M-a t") 'org-ai-talk-input-toggle)
-  (define-key map (kbd "C-c M-a T") 'org-ai-talk-output-toggle))
+(define-key org-ai-global-mode-map (kbd "C-c M-a") org-ai-global-prefix-map)
 
 ;;;###autoload
 (define-minor-mode org-ai-global-mode
   "Non `org-mode' specific minor mode for the OpenAI API."
         :init-value nil
-        :lighter " org-ai-global"
+        :lighter ""
+        :diminish
         :global t
         :keymap org-ai-global-mode-map
         :group 'org-ai)
