@@ -4,7 +4,7 @@
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Version: 0.3.1
+;; Version: 0.3.2
 ;; Package-Requires: ((emacs "28.2"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -55,30 +55,31 @@
 ;;
 ;; Available commands:
 ;;
-;; - Inside org-mode / `#+begin_ai..#+end_ai` blocks:
-;;     - `C-c C-c` to send the text to the OpenAI API and insert a response
-;;     - Press `C-c <backspace>` (`org-ai-kill-region-at-point`) to remove the chat part under point.
-;;     - `org-ai-mark-region-at-point` will mark the region at point.
-;;     - `org-ai-mark-last-region` will mark the last chat part.
+;; - Inside org-mode / #+begin_ai..#+end_ai blocks:
+;;     - C-c C-c to send the text to the OpenAI API and insert a response
+;;     - Press C-c <backspace> (org-ai-kill-region-at-point) to remove the chat part under point.
+;;     - org-ai-mark-region-at-point will mark the region at point.
+;;     - org-ai-mark-last-region will mark the last chat part.
 ;;
 ;; - Speech input/output. Talk with your AI!
-;;     - In org-mode / `#+begin_ai..#+end_ai` blocks:
-;;       - `C-c r` to record and transcribe speech via whisper.el in org blocks.
+;;     - In org-mode / #+begin_ai..#+end_ai blocks:
+;;       - C-c r to record and transcribe speech via whisper.el in org blocks.
 ;;     - Everywhere else:
-;;         - Enable speech input with `org-ai-talk-input-toggle` for other commands (see below).
-;;     - Enable speech output with `org-ai-talk-output-enable`. Speech output uses os internal speech synth (macOS) or `espeak` otherwise.
+;;         - Enable speech input with org-ai-talk-input-toggle for other commands (see below).
+;;     - Enable speech output with org-ai-talk-output-enable. Speech output uses os internal speech synth (macOS) or espeak otherwise.
 ;;     - See [Setting up speech input / output](#setting-up-speech-input--output) below for more details.
 ;;
 ;; - Non-org-mode commands
-;;     - `org-ai-prompt`: prompt the user for a text and then print the AI's response in current buffer.
-;;     - `org-ai-on-region`: Ask a question about the selected text or tell the AI to do something with it.
-;;     - `org-ai-summarize`: Summarize the selected text.
-;;     - `org-ai-explain-code`: Explain the selected code.
-;;     - `org-ai-refactor-code`: Tell the AI how to change the selected code, a diff buffer will appear with the changes.
+;;     - org-ai-on-region: Ask a question about the selected text or tell the AI to do something with it.
+;;     - org-ai-refactor-code: Tell the AI how to change the selected code, a diff buffer will appear with the changes.
+;;     - org-ai-on-project: Query / modify multiple files at once. Will use projectile if available.
+;;     - org-ai-prompt: prompt the user for a text and then print the AI's response in current buffer.
+;;     - org-ai-summarize: Summarize the selected text.
+;;     - org-ai-explain-code: Explain the selected code.
 ;;
-;; - `org-ai-open-account-usage-page` show how much money you burned.
-;; - `org-ai-install-yasnippets` install snippets for `#+begin_ai..#+end_ai` blocks.
-;; - `org-ai-open-request-buffer` for debugging, open the request buffer.
+;; - org-ai-open-account-usage-page show how much money you burned.
+;; - org-ai-install-yasnippets install snippets for #+begin_ai..#+end_ai blocks.
+;; - org-ai-open-request-buffer for debugging, open the request buffer.
 
 ;;; Code:
 

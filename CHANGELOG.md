@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2] - 2023-04-18
+
+### Changes
+- For the global mode, use a prefix-map. `org-ai-global-prefix-map`, it is bound to `C-c M-a` by default but can be easily bound to another key.
+- don't show `org-ai-global-mode` in the mode-line
+- no `show-trailing-whitespace` for org-ai-on-project
+- load `org-ai-talk` by default
+
 ## [0.3.1] - 2023-04-17
 ### Added
 - `org-ai-on-project`: Load by default.
