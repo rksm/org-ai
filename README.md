@@ -6,6 +6,7 @@ Minor mode for Emacs org-mode that provides access to OpenAI API's. Inside an or
 - use ChatGPT to generate text, having full control over system and user prompts ([demo](#chatgpt-in-org-mode))
 - Speech input and output! Talk with your AI!
 - generate images and image variations with a text prompt using DALL-E ([demo 1](#dall-e-in-org-mode), [demo 2](#image-variations))
+- org-ai everywhere: Various commands usable outside org-mode for prompting using the selected text or multiple files.
 
 _Note: In order to use this you'll need an [OpenAI account](https://platform.openai.com/) and you need to get an API token. As far as I can tell, the current usage limits for the free tier get you pretty far._
 
