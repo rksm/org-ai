@@ -727,6 +727,8 @@ N is the number of times to repeat the command."
   :keymap org-ai-on-project-mode-map
   :group 'org-ai-on-project)
 
+(add-hook 'org-ai-on-project-mode-hook (lambda () (setq-local show-trailing-whitespace nil)))
+
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 (defun org-ai-on-project--run (state)
