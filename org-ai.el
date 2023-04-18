@@ -4,7 +4,7 @@
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Version: 0.3.1
+;; Version: 0.3.2
 ;; Package-Requires: ((emacs "28.2"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -55,30 +55,31 @@
 ;;
 ;; Available commands:
 ;;
-;; - Inside org-mode / `#+begin_ai..#+end_ai` blocks:
-;;     - `C-c C-c` to send the text to the OpenAI API and insert a response
-;;     - Press `C-c <backspace>` (`org-ai-kill-region-at-point`) to remove the chat part under point.
-;;     - `org-ai-mark-region-at-point` will mark the region at point.
-;;     - `org-ai-mark-last-region` will mark the last chat part.
+;; - Inside org-mode / #+begin_ai..#+end_ai blocks:
+;;     - C-c C-c to send the text to the OpenAI API and insert a response
+;;     - Press C-c <backspace> (org-ai-kill-region-at-point) to remove the chat part under point.
+;;     - org-ai-mark-region-at-point will mark the region at point.
+;;     - org-ai-mark-last-region will mark the last chat part.
 ;;
 ;; - Speech input/output. Talk with your AI!
-;;     - In org-mode / `#+begin_ai..#+end_ai` blocks:
-;;       - `C-c r` to record and transcribe speech via whisper.el in org blocks.
+;;     - In org-mode / #+begin_ai..#+end_ai blocks:
+;;       - C-c r to record and transcribe speech via whisper.el in org blocks.
 ;;     - Everywhere else:
-;;         - Enable speech input with `org-ai-talk-input-toggle` for other commands (see below).
-;;     - Enable speech output with `org-ai-talk-output-enable`. Speech output uses os internal speech synth (macOS) or `espeak` otherwise.
+;;         - Enable speech input with org-ai-talk-input-toggle for other commands (see below).
+;;     - Enable speech output with org-ai-talk-output-enable. Speech output uses os internal speech synth (macOS) or espeak otherwise.
 ;;     - See [Setting up speech input / output](#setting-up-speech-input--output) below for more details.
 ;;
 ;; - Non-org-mode commands
-;;     - `org-ai-prompt`: prompt the user for a text and then print the AI's response in current buffer.
-;;     - `org-ai-on-region`: Ask a question about the selected text or tell the AI to do something with it.
-;;     - `org-ai-summarize`: Summarize the selected text.
-;;     - `org-ai-explain-code`: Explain the selected code.
-;;     - `org-ai-refactor-code`: Tell the AI how to change the selected code, a diff buffer will appear with the changes.
+;;     - org-ai-on-region: Ask a question about the selected text or tell the AI to do something with it.
+;;     - org-ai-refactor-code: Tell the AI how to change the selected code, a diff buffer will appear with the changes.
+;;     - org-ai-on-project: Query / modify multiple files at once. Will use projectile if available.
+;;     - org-ai-prompt: prompt the user for a text and then print the AI's response in current buffer.
+;;     - org-ai-summarize: Summarize the selected text.
+;;     - org-ai-explain-code: Explain the selected code.
 ;;
-;; - `org-ai-open-account-usage-page` show how much money you burned.
-;; - `org-ai-install-yasnippets` install snippets for `#+begin_ai..#+end_ai` blocks.
-;; - `org-ai-open-request-buffer` for debugging, open the request buffer.
+;; - org-ai-open-account-usage-page show how much money you burned.
+;; - org-ai-install-yasnippets install snippets for #+begin_ai..#+end_ai blocks.
+;; - org-ai-open-request-buffer for debugging, open the request buffer.
 
 ;;; Code:
 
@@ -87,6 +88,7 @@
 (require 'org-ai-openai-image)
 (require 'org-ai-useful)
 (require 'org-ai-on-project)
+(require 'org-ai-talk)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -179,26 +181,34 @@ It's designed to \"do the right thing\":
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+(defvar org-ai-global-prefix-map (make-sparse-keymap)
+  "Keymap for `org-ai-global-mode'.")
+
+(let ((map org-ai-global-prefix-map))
+  (define-key map (kbd "p") 'org-ai-on-project)
+  (define-key map (kbd "P") 'org-ai-prompt)
+  (define-key map (kbd "r") 'org-ai-on-region)
+  (define-key map (kbd "c") 'org-ai-refactor-code)
+  (define-key map (kbd "s") 'org-ai-summarize)
+  (define-key map (kbd "m") 'org-ai-switch-chat-model)
+  (define-key map (kbd "!") 'org-ai-open-request-buffer)
+  (define-key map (kbd "$") 'org-ai-open-account-usage-page)
+  (define-key map (kbd "t") 'org-ai-talk-input-toggle)
+  (define-key map (kbd "T") 'org-ai-talk-output-toggle)
+  (define-key map (kbd "R") 'org-ai-talk-read-region)
+  (define-key map (kbd "SPC") 'org-ai-mark-region-at-point))
+
 (defvar org-ai-global-mode-map (make-sparse-keymap)
   "Keymap for `org-ai-global-mode'.")
 
-(let ((map org-ai-global-mode-map))
-  (define-key map (kbd "C-c M-a p") 'org-ai-prompt)
-  (define-key map (kbd "C-c M-a r") 'org-ai-on-region)
-  (define-key map (kbd "C-c M-a c") 'org-ai-refactor-code)
-  (define-key map (kbd "C-c M-a s") 'org-ai-summarize)
-  (define-key map (kbd "C-c M-a m") 'org-ai-switch-chat-model)
-
-  (define-key map (kbd "C-c M-a !") 'org-ai-open-request-buffer)
-  (define-key map (kbd "C-c M-a $") 'org-ai-open-account-usage-page)
-  (define-key map (kbd "C-c M-a t") 'org-ai-talk-input-toggle)
-  (define-key map (kbd "C-c M-a T") 'org-ai-talk-output-toggle))
+(define-key org-ai-global-mode-map (kbd "C-c M-a") org-ai-global-prefix-map)
 
 ;;;###autoload
 (define-minor-mode org-ai-global-mode
   "Non `org-mode' specific minor mode for the OpenAI API."
         :init-value nil
-        :lighter " org-ai-global"
+        :lighter ""
+        :diminish
         :global t
         :keymap org-ai-global-mode-map
         :group 'org-ai)
