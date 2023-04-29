@@ -372,3 +372,7 @@ My full speech enabled config then looks like:
 ### Is this OpenAI specfic?
 
 Currently yes but once there are more high-quality APIs available I'm planning on supporting those as well.
+
+### Are there similar projects around?
+
+Yes, the gptel package provides similar functionalities: https://github.com/karthink/gptel
