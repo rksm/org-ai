@@ -105,8 +105,11 @@ the text content to the OpenAI API and replace the block with the
 result."
   (interactive)
   (let* ((context (org-ai-special-block))
-         (content (org-ai-get-block-content context))
          (info (org-ai-get-block-info context))
+         (unexpanded-content (org-ai-get-block-content context))
+         (content (if (eq "yes" (plist-get :noweb info))
+                      (org-babel-expand-noweb-references (list "markdown" unexpanded-content))
+                      unexpanded-content))
          (req-type (org-ai--request-type info))
          (sys-prompt-for-all-messages (or (not (eql 'x (alist-get :sys-everywhere info 'x)))
                                           org-ai-default-inject-sys-prompt-for-all-messages)))
