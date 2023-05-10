@@ -28,7 +28,7 @@ _Note: In order to use this you'll need an [OpenAI account](https://platform.ope
     - [Image variation](#image-variation)
     - [Global Commands](#global-commands)
         - [org-ai-on-project](#org-ai-on-project)
-    - [Noweb Support] (#noweb-support)
+    - [Noweb Support](#noweb-support)
 - [Installation](#installation)
     - [Melpa](#melpa)
     - [Straight.el](#straightel)
