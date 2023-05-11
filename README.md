@@ -97,20 +97,20 @@ This will result in an API payload like
 ```json
 {
   "messages": [
-               {
-                 "role": "system",
-                 "content": "Act as if you are a powerful medival king."}
-               ,
-               {
-                 "role": "user",
-                 "content": "What will you eat today?"}]
-    
-  ,
+    {
+      "role": "system",
+      "content": "Act as if you are a powerful medival king."
+    },
+    {
+      "role": "user",
+      "content": "What will you eat today?"
+    }
+  ],
   "model": "gpt-3.5-turbo",
   "stream": true,
   "max_tokens": 250,
-  "temperature": 1.2}
-
+  "temperature": 1.2
+}
 ```
 
 For some prompt ideas see for example [Awesome ChatGPT Prompts](https://github.com/f/awesome-chatgpt-prompts).
@@ -217,13 +217,13 @@ With "modify code" activated, you can ask the AI to modify or refactor the code.
 Given a named source block
 ```
 #+name: sayhi
-#+begin_src shell 
+#+begin_src shell
 echo "Hello there"
 #+end_src
 ```
 We can try to reference it by name, but it doesn't work.
 ```
-#+begin_ai 
+#+begin_ai
 [SYS]: You are a mimic. Whenever I say something, repeat back what I say to you. Say exactly what I said, do not add anything.
 
 [ME]: <<sayhi()>>
@@ -231,7 +231,7 @@ We can try to reference it by name, but it doesn't work.
 
 [AI]: <<sayhi()>>
 
-[ME]: 
+[ME]:
 #+end_ai
 ```
 With `:noweb yes`
@@ -245,7 +245,7 @@ With `:noweb yes`
 
 [AI]: Hello there.
 
-[ME]: 
+[ME]:
 #+end_ai
 ```
 
@@ -278,7 +278,7 @@ Tell me some 3, simple ways to improve this dockerfile
 
 3. Use multi-stage builds to separate the build environment from the production environment, thus reducing the size of the final image and increasing security. For example, the first stage can be used to install dependencies and build the code, while the second stage can contain only the final artifacts and be used for deployment.
 
-[ME]: 
+[ME]:
 #+end_ai
 ```
 
@@ -335,7 +335,7 @@ Then, if you use `use-package`:
 (use-package org-ai
   :load-path (lambda () "path/to/org-ai"))
   ;; ...rest as above...
-  
+
 ```
 
 or just with `require`:

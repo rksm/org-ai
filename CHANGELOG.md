@@ -1,6 +1,10 @@
 # Changelog
 
-## [0.3.3] - 2023-05-11
+## [0.3.5] - 2023-05-11
+### Added
+- noweb support (https://github.com/rksm/org-ai/pull/46)
+
+## [0.3.4] - 2023-05-11
 ### Changes
 - Bind canceling `org-ai-on-project--confirm-selection` to `C-c C-k` instead of `C-c k`.
 
