@@ -102,21 +102,23 @@ Will always return t if `org-ai-talk-confirm-speech-input' is nil."
                                                     ,prompt)
        (error "Module not loaded: org-ai-talk"))))
 
-(defvar-local org-ai-prompt--last-insertion-point nil)
+(defvar-local org-ai-prompt--last-insertion-marker nil)
 
 (defun org-ai-prompt--insert (output-buffer text &optional follow)
   "Insert `TEXT' in `OUTPUT-BUFFER'.
 `FOLLOW' is whether to move point to the end of the inserted text."
   (cl-flet ((insert-fn (text)
-              (goto-char org-ai-prompt--last-insertion-point)
-              (let ((inhibit-read-only t))
-                (insert (decode-coding-string text 'utf-8)))
-              (setq org-ai-prompt--last-insertion-point (point))))
-  (with-current-buffer output-buffer
-    (if follow
-        (insert-fn text)
-      (save-excursion
-        (insert-fn text))))))
+                       (unless org-ai-prompt--last-insertion-marker
+                         (setq org-ai-prompt--last-insertion-marker (point-marker)))
+                       (goto-char org-ai-prompt--last-insertion-marker)
+                       (let ((inhibit-read-only t))
+                         (insert (decode-coding-string text 'utf-8)))
+                       (set-marker org-ai-prompt--last-insertion-marker (point))))
+    (with-current-buffer output-buffer
+      (if follow
+          (insert-fn text)
+        (save-excursion
+          (insert-fn text))))))
 
 (cl-defun org-ai-prompt (prompt &optional &key sys-prompt output-buffer select-output follow callback)
   "Prompt for a gpt input, insert the response in current buffer.
@@ -131,11 +133,11 @@ Will always return t if `org-ai-talk-confirm-speech-input' is nil."
 
   (org-ai-with-input-or-spoken-text "What do you want to know?" prompt
     (let ((output-buffer (or output-buffer (current-buffer)))
-          (start-pos (point)))
+          (start-pos-marker (point-marker)))
       (let* ((sys-input (if sys-prompt (format "[SYS]: %s\n" sys-prompt)))
              (input (format "%s\n[ME]: %s" sys-input prompt)))
         (with-current-buffer output-buffer
-          (setq org-ai-prompt--last-insertion-point (point)))
+          (setq org-ai-prompt--last-insertion-marker (point-marker)))
         (org-ai-stream-request :messages (org-ai--collect-chat-messages input)
                                :model org-ai-default-chat-model
                                :callback (lambda (response)
@@ -155,7 +157,8 @@ Will always return t if `org-ai-talk-confirm-speech-input' is nil."
                                                    (when select-output
                                                      (with-current-buffer output-buffer
                                                        (set-mark (point))
-                                                       (goto-char start-pos))))))
+                                                       (goto-char start-pos-marker))))))
+                                             (setq org-ai-prompt--last-insertion-marker nil)
                                              (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end "")
                                              (when callback (with-current-buffer output-buffer (funcall callback))))))))))
 

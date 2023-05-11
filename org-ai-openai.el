@@ -115,9 +115,9 @@ For chat completion responses.")
 Note this is alled for every stream response so it will typically
 only contain fragments.")
 
-(defvar org-ai--current-insert-position nil
+(defvar org-ai--current-insert-position-marker nil
   "Where to insert the result.")
-(make-variable-buffer-local 'org-ai--current-insert-position)
+(make-variable-buffer-local 'org-ai--current-insert-position-marker)
 
 (defvar org-ai--current-chat-role nil
   "During chat response streaming, this holds the role of the \"current speaker\".")
@@ -125,10 +125,10 @@ only contain fragments.")
 (defvar org-ai--chat-got-first-response nil)
 (make-variable-buffer-local 'org-ai--chat-got-first-response)
 
-(defvar org-ai--url-buffer-last-position nil
+(defvar org-ai--url-buffer-last-position-marker nil
   "Local buffer var to store last read position.")
-;; (make-variable-buffer-local 'org-ai--url-buffer-last-position)
-;; (makunbound 'org-ai--url-buffer-last-position)
+;; (make-variable-buffer-local 'org-ai--url-buffer-last-position-marker)
+;; (makunbound 'org-ai--url-buffer-last-position-marker)
 
 (defvar org-ai--debug-data nil)
 (defvar org-ai--debug-data-raw nil)
@@ -161,7 +161,7 @@ penalty. `CONTEXT' is the context of the special block."
            (callback (if messages
                          (lambda (result) (org-ai--insert-chat-completion-response context buffer result))
                        (lambda (result) (org-ai--insert-stream-completion-response context buffer result)))))
-      (setq org-ai--current-insert-position nil)
+      (setq org-ai--current-insert-position-marker nil)
       (setq org-ai--chat-got-first-response nil)
       (setq org-ai--debug-data nil)
       (setq org-ai--debug-data-raw nil)
@@ -187,9 +187,11 @@ from the OpenAI API."
                   (text (plist-get choice 'text)))
             (with-current-buffer buffer
               ;; set mark so we can easily select the generated text (e.g. to delet it to try again)
-              (unless org-ai--current-insert-position
+              (unless org-ai--current-insert-position-marker
                 (push-mark (org-element-property :contents-end context)))
-              (let ((pos (or org-ai--current-insert-position (org-element-property :contents-end context))))
+              (let ((pos (or (and org-ai--current-insert-position-marker
+                                  (marker-position org-ai--current-insert-position-marker))
+                             (org-element-property :contents-end context))))
                 (save-excursion
                   (goto-char pos)
 
@@ -197,7 +199,7 @@ from the OpenAI API."
                     (insert "\n")
                     (backward-char))
                   (insert text)
-                  (setq org-ai--current-insert-position (point)))))))))
+                  (setq org-ai--current-insert-position-marker (point-marker)))))))))
 
 (defun org-ai--insert-chat-completion-response (context buffer &optional response)
   "`RESPONSE' is one JSON message of the stream response.
@@ -210,7 +212,9 @@ the response into."
       (if-let ((error (plist-get response 'error)))
           (if-let ((message (plist-get error 'message))) (error message) (error error))
         (with-current-buffer buffer
-          (let ((pos (or org-ai--current-insert-position (org-element-property :contents-end context))))
+          (let ((pos (or (and org-ai--current-insert-position-marker
+                              (marker-position org-ai--current-insert-position-marker))
+                         (org-element-property :contents-end context))))
             (save-excursion
               (goto-char pos)
 
@@ -247,11 +251,12 @@ the response into."
                           (insert "\n[SYS]: ")))
                         (run-hook-with-args 'org-ai-after-chat-insertion-hook 'role role))))))
 
-              (setq org-ai--current-insert-position (point))))))
+              (setq org-ai--current-insert-position-marker (point-marker))))))
 
     ;; insert new prompt and change position
     (with-current-buffer buffer
-      (goto-char org-ai--current-insert-position)
+      (when org-ai--current-insert-position-marker
+        (goto-char org-ai--current-insert-position-marker))
       (let ((text "\n\n[ME]: "))
         (insert text)
         (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end text)))))
@@ -423,10 +428,10 @@ and the length in chars of the pre-change text replaced by that range."
   (with-current-buffer org-ai--current-request-buffer-for-stream
     (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
       (save-excursion
-        (if org-ai--url-buffer-last-position
-            (goto-char org-ai--url-buffer-last-position)
+        (if org-ai--url-buffer-last-position-marker
+            (goto-char org-ai--url-buffer-last-position-marker)
           (goto-char url-http-end-of-headers)
-          (setq org-ai--url-buffer-last-position (point)))
+          (setq org-ai--url-buffer-last-position-marker (point-marker)))
 
         ;; Avoid a bug where we skip responses because url has modified the http
         ;; buffer and we are not where we think we are.
@@ -448,7 +453,7 @@ and the length in chars of the pre-change text replaced by that range."
                   (progn
                     (when org-ai--current-request-callback
                       (funcall org-ai--current-request-callback nil))
-                    (setq org-ai--url-buffer-last-position (point))
+                    (set-marker org-ai--url-buffer-last-position-marker (point))
                     (org-ai-reset-stream-state)
                     (message "org-ai request done"))
                 (let ((json-object-type 'plist)
@@ -460,10 +465,10 @@ and the length in chars of the pre-change text replaced by that range."
                         ;; (setq org-ai--debug-data (append org-ai--debug-data (list data)))
                         (when org-ai--current-request-callback
                           (funcall org-ai--current-request-callback data))
-                        (setq org-ai--url-buffer-last-position (point)))
+                        (set-marker org-ai--url-buffer-last-position-marker (point)))
                     (error
                      (setq errored t)
-                     (goto-char org-ai--url-buffer-last-position))))))))))))
+                     (goto-char org-ai--url-buffer-last-position-marker))))))))))))
 
 (defun org-ai-interrupt-current-request ()
   "Interrupt the current request."
@@ -480,9 +485,9 @@ and the length in chars of the pre-change text replaced by that range."
   (when (and org-ai--current-request-buffer-for-stream (buffer-live-p org-ai--current-request-buffer-for-stream))
     (with-current-buffer org-ai--current-request-buffer-for-stream
       (remove-hook 'after-change-functions #'org-ai--url-request-on-change-function t)
-      (setq org-ai--url-buffer-last-position nil)))
+      (setq org-ai--url-buffer-last-position-marker nil)))
   (setq org-ai--current-request-callback nil)
-  (setq org-ai--url-buffer-last-position nil)
+  (setq org-ai--url-buffer-last-position-marker nil)
   (setq org-ai--current-chat-role nil))
 
 (defun org-ai-open-request-buffer ()
