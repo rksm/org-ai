@@ -28,6 +28,7 @@ _Note: In order to use this you'll need an [OpenAI account](https://platform.ope
     - [Image variation](#image-variation)
     - [Global Commands](#global-commands)
         - [org-ai-on-project](#org-ai-on-project)
+    - [Noweb Support](#noweb-support)
 - [Installation](#installation)
     - [Melpa](#melpa)
     - [Straight.el](#straightel)
@@ -96,20 +97,20 @@ This will result in an API payload like
 ```json
 {
   "messages": [
-    {
-      "role": "system",
-      "content": "Act as if you are a powerful medival king."
-    },
-    {
-      "role": "user",
-      "content": "What will you eat today?"
-    }
-  ],
+               {
+                 "role": "system",
+                 "content": "Act as if you are a powerful medival king."}
+               ,
+               {
+                 "role": "user",
+                 "content": "What will you eat today?"}]
+    
+  ,
   "model": "gpt-3.5-turbo",
   "stream": true,
   "max_tokens": 250,
-  "temperature": 1.2
-}
+  "temperature": 1.2}
+
 ```
 
 For some prompt ideas see for example [Awesome ChatGPT Prompts](https://github.com/f/awesome-chatgpt-prompts).
@@ -211,6 +212,77 @@ If you deactivate "modify code", the effect is similar to running `org-ai-on-reg
 
 With "modify code" activated, you can ask the AI to modify or refactor the code. By default ("Request diffs") deactivated, we will prompt to generate the new code for all selected files/regions and you can then see a diff per file and decide to apply it or not. With "Request diffs" active, the AI will be asked to directly create a unified diff that can then be applied. This is experimental and might not work. GPT can't count...
 
+### Noweb Support
+
+Given a named source block
+```
+#+name: sayhi
+#+begin_src shell 
+echo "Hello there"
+#+end_src
+```
+We can try to reference it by name, but it doesn't work.
+```
+#+begin_ai 
+[SYS]: You are a mimic. Whenever I say something, repeat back what I say to you. Say exactly what I said, do not add anything.
+
+[ME]: <<sayhi()>>
+
+
+[AI]: <<sayhi()>>
+
+[ME]: 
+#+end_ai
+```
+With `:noweb yes`
+
+```
+#+begin_ai :noweb yes
+[SYS]: You are a mimic. Whenever I say something, repeat back what I say to you. Say exactly what I said, do not add anything.
+
+[ME]: <<sayhi()>>
+
+
+[AI]: Hello there.
+
+[ME]: 
+#+end_ai
+```
+
+#### Run arbitrary lisp inline
+
+This is a hack but it works really well.
+
+Create a block
+
+```
+#+name: identity
+#+begin_src emacs-lisp :var x="fill me in"
+(format "%s" x)
+#+end_src
+```
+
+We can invoke it and let noweb parameters (which support lisp) evaluate as code
+
+```
+#+begin_ai :noweb yes
+Tell me some 3, simple ways to improve this dockerfile
+
+<<identity(x=(quelpa-slurp-file "~/code/ibr-api/Dockerfile"))>>
+
+
+
+[AI]: 1. Use a more specific version of Python, such as "python:3.9.6-buster" instead of "python:3.9-buster", to ensure compatibility with future updates.
+
+2. Add a cleanup step after installing poetry to remove any unnecessary files or dependencies, thus reducing the size of the final image.
+
+3. Use multi-stage builds to separate the build environment from the production environment, thus reducing the size of the final image and increasing security. For example, the first stage can be used to install dependencies and build the code, while the second stage can contain only the final artifacts and be used for deployment.
+
+[ME]: 
+#+end_ai
+```
+
+
 ## Installation
 
 ### Melpa
@@ -235,8 +307,8 @@ you can install it with:
   (org-ai-global-mode) ; installs global keybindings on C-c M-a
   :config
   (setq org-ai-default-chat-model "gpt-4") ; if you are on the gpt-4 beta:
-  (org-ai-install-yasnippets) ; if you are using yasnippet and want `ai` snippets
-)
+  (org-ai-install-yasnippets)) ; if you are using yasnippet and want `ai` snippets
+
 ```
 
 ### Straight.el
@@ -261,9 +333,9 @@ Then, if you use `use-package`:
 
 ```elisp
 (use-package org-ai
-  :load-path (lambda () "path/to/org-ai")
+  :load-path (lambda () "path/to/org-ai"))
   ;; ...rest as above...
-  )
+  
 ```
 
 or just with `require`:
