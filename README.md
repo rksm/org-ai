@@ -221,7 +221,6 @@ Given a named source block
 echo "Hello there"
 #+end_src
 ```
-
 We can try to reference it by name, but it doesn't work.
 ```
 #+begin_ai 
@@ -234,9 +233,10 @@ We can try to reference it by name, but it doesn't work.
 
 [ME]: 
 #+end_ai
-
+```
 With `:noweb yes`
 
+```
 #+begin_ai :noweb yes
 [SYS]: You are a mimic. Whenever I say something, repeat back what I say to you. Say exactly what I said, do not add anything.
 
