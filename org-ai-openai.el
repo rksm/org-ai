@@ -374,11 +374,15 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
     (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
       (goto-char url-http-end-of-headers))
     (condition-case nil
-        (let* ((content (buffer-substring-no-properties (point) (point-max)))
-               (body (json-read-from-string content)))
-          (let* ((err (alist-get 'error body))
-                 (message (or (alist-get 'message err) (json-encode err))))
-            (org-ai--show-error message)))
+        (when-let* ((body (json-read))
+                    (err (or (alist-get 'error body)
+                             (plist-get body 'error)))
+                    (message (or (alist-get 'message err)
+                                 (plist-get err 'message)))
+                    (message (if (and message (not (string-blank-p message)))
+                                 message
+                               (json-encode err))))
+          (org-ai--show-error message))
       (error nil))))
 
 (defun org-ai--show-error (error-message)
@@ -387,14 +391,16 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
   (condition-case nil
       (let ((buf (get-buffer-create "*org-ai error*")))
         (with-current-buffer buf
+          (read-only-mode -1)
           (erase-buffer)
+          (insert "Error from OpenAI API:\n\n")
           (insert error-message)
-          (pop-to-buffer buf)
+          (display-buffer buf)
           (goto-char (point-min))
           (toggle-truncate-lines -1)
           (read-only-mode 1)
           ;; close buffer when q is pressed
-          (local-set-key (kbd "q") (lambda () (interactive) (kill-buffer-and-window)))
+          (local-set-key (kbd "q") (lambda () (interactive) (kill-buffer)))
           t))
     (error nil)))
 
