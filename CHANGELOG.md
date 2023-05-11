@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.3] - 2023-05-11
+### Changes
+- Ensure that request errors are shown (fix [#43](https://github.com/rksm/org-ai/issues/43))
+- Use markers instead of positions when inserting streamed content
+
 ## [0.3.2] - 2023-04-18
 
 ### Changes
