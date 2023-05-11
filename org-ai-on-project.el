@@ -402,7 +402,7 @@ code as values."
   :lighter " Select-Region"
   :keymap (let ((map (make-sparse-keymap)))
             (define-key map (kbd "C-c C-c") 'org-ai-on-project--confirm-selection)
-            (define-key map (kbd (string-join (list "C-c" " k"))) (lambda () (interactive) (org-ai-on-project--confirm-selection t)))
+            (define-key map (kbd (string-join (list "C-c" " C-k"))) (lambda () (interactive) (org-ai-on-project--confirm-selection t)))
             map))
 
 (defun org-ai-on-project--confirm-selection (&optional cancel)
@@ -442,7 +442,7 @@ FILE is of type `org-ai-on-project--file`. It is not a string!"
     (when region
       (goto-char (car region))
       (set-mark (cadr region)))
-    (message "Select a region then press `C-c C-c'. Cancel with `C-c k'.")))
+    (message "Select a region then press `C-c C-c'. Cancel with `C-c C-k'.")))
 
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
