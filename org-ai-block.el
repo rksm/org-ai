@@ -49,7 +49,10 @@ key-value pairs."
 
 (defun org-ai-get-block-content (&optional context)
   "Extracts the text content of the #+begin_ai...#+end_ai block.
-`CONTEXT' is the context of the special block."
+`CONTEXT' is the context of the special block.
+
+Will expand noweb templates if an 'org-ai-noweb' property or 'noweb' header arg is \"yes\""
+
   (let* ((context (or context (org-ai-special-block)))
          (content-start (org-element-property :contents-begin context))
          (content-end (org-element-property :contents-end context))
