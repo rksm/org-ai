@@ -54,10 +54,13 @@ key-value pairs."
          (content-start (org-element-property :contents-begin context))
          (content-end (org-element-property :contents-end context))
          (unexpanded-content (string-trim (buffer-substring-no-properties content-start content-end)))
-         (content (if (string-equal-ignore-case "yes" (alist-get :noweb (org-ai-get-block-info context) "no"))
+         (info (org-ai-get-block-info context))
+         (noweb-control (or (alist-get :noweb info nil)
+                            (org-entry-get (point) "org-ai-noweb" 1)
+                            "no"))
+         (content (if (string-equal-ignore-case "yes" noweb-control)
                       (org-babel-expand-noweb-references (list "markdown" unexpanded-content))
                       unexpanded-content)))
-
     content))
 
 (defun org-ai--request-type (info)
