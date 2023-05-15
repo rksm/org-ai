@@ -464,6 +464,27 @@ Will open the diff buffer and return it."
           diff-buffer)))))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+;; Marking blocks
+
+(defun org-ai-mark-block-contents ()
+  "Set the currently marked region to the contents of this org-ai block. Place point at beginning of contents."
+  (interactive)
+  (when-let* ((block-info (cadr (org-ai-special-block)))
+              (contents-begin (plist-get block-info :contents-begin))
+              (contents-end (plist-get block-info :contents-end)))
+    (goto-char contents-begin)
+    (set-mark contents-end)
+    (activate-mark)))
+
+(defun org-ai-mark-block-after-point ()
+  "Set the currently marked region to the contents of this org-ai block after point."
+  (interactive)
+  (when-let* ((block-info (cadr (org-ai-special-block)))
+              (contents-end (plist-get block-info :contents-end)))
+    (set-mark (- contents-end 1))
+    (activate-mark)))
+
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
 (provide 'org-ai-useful)
 
