@@ -52,8 +52,13 @@ key-value pairs."
 `CONTEXT' is the context of the special block."
   (let* ((context (or context (org-ai-special-block)))
          (content-start (org-element-property :contents-begin context))
-         (content-end (org-element-property :contents-end context)))
-    (string-trim (buffer-substring-no-properties content-start content-end))))
+         (content-end (org-element-property :contents-end context))
+         (unexpanded-content (string-trim (buffer-substring-no-properties content-start content-end)))
+         (content (if (string-equal-ignore-case "yes" (alist-get :noweb (org-ai-get-block-info context) "no"))
+                      (org-babel-expand-noweb-references (list "markdown" unexpanded-content))
+                      unexpanded-content)))
+
+    content))
 
 (defun org-ai--request-type (info)
   "Look at the header of the #+begin_ai...#+end_ai block.
