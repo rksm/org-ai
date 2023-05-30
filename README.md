@@ -35,6 +35,8 @@ _Note: In order to use this you'll need an [OpenAI account](https://platform.ope
     - [Manual](#manual)
     - [OpenAI API key](#openai-api-key)
     - [Setting up speech input / output](#setting-up-speech-input--output)
+        - [Whisper](#whisper)
+        - [espeak / greader](#espeak--greader)
 - [FAQ](#faq)
 
 ## Demos
@@ -369,6 +371,8 @@ in your `~/authinfo.gpg` file. If this is present, `org-ai-openai-api-token` wil
 
 ### Setting up speech input / output
 
+#### Whisper
+
 These setup steps are optional. If you don't want to use speech input / output, you can skip this section.
 
 _Note: My personal config for org-ai can be found in [this gist](https://gist.github.com/rksm/04be012be07671cd5e1dc6ec5b077e34). It contains a working whisper setup._
@@ -400,13 +404,13 @@ Now also load:
 (setq org-ai-talk-say-voice "Karen")
 ```
 
-#### macOS specific steps
+##### macOS specific steps
 
 On macOS you will need to do two more things:
 1. Allow Emacs to record audio
 2. Tell whisper.el what microphone to use
 
-##### 1. Allow Emacs to record audio
+###### 1. Allow Emacs to record audio
 You can use the [tccutil helper](https://github.com/DocSystem/tccutil):
 
 ```sh
@@ -417,7 +421,7 @@ sudo python ./tccutil.py -p /Applications/Emacs.app -e --microphone
 
 When you now run `ffmpeg -f avfoundation -i :0 output.mp3` from within an Emacs shell, there should be no `abort trap: 6` error.
 
-##### 2. Tell whisper.el what microphone to use
+###### 2. Tell whisper.el what microphone to use
 
 You can use the output of `ffmpeg -f avfoundation -list_devices true -i ""` to list the audio input devices and then tell whisper.el about it: `(setq whisper--ffmpeg-input-device ":0")`. `:0` is the microphone index, see the output of the command above to use another one.
 
@@ -438,6 +442,9 @@ My full speech enabled config then looks like:
     (setq whisper--ffmpeg-input-device (format ":%s" rk/default-audio-device))))
 ```
 
+#### espeak / greader
+
+Speech output on non-macOS systems defaults to using the [greader](http://elpa.gnu.org/packages/greader.html) package which uses [espeak](https://espeak.sourceforge.net/) underneath to synthesize speech. You will need to install greader manually (e.g. via `M-x package-install`). From that point on it should "just work". You can test it by selecting some text and calling `M-x org-ai-talk-read-region`.
 
 ## FAQ
 
