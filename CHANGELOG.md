@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.6] - 2023-05-30
+### Changed
+- fix for `string-equal-ignore-case` issue (https://github.com/rksm/org-ai/issues/53)
+- documented use of greader/espeak (https://github.com/rksm/org-ai/issues/49)
+
 ## [0.3.5] - 2023-05-11
 ### Added
 - noweb support (https://github.com/rksm/org-ai/pull/46)
