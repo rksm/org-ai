@@ -379,10 +379,6 @@ _Note: My personal config for org-ai can be found in [this gist](https://gist.gi
 
 This has been tested on macOS and Linux. Someone with a Windows computer, please test this and let me know what needs to be done to make it work (Thank You!).
 
-For text-to-speech on macOS, you have at least two options for speech input, the built-in Siri dictation or whisper.el.
-
-To enable the built-in Siri dictation, go to `Preferences -> Keyboard -> Dictation`, enable it and set up a shortcut. The default is ctrl-ctrl.
-
 The speech input uses [whisper.el](https://github.com/natrys/whisper.el) and `ffmpeg`. You need to clone the repo directly or use [straight.el](https://github.com/radian-software/straight.el) to install it.
 
 1. install ffmpeg (e.g. `brew install ffmpeg` on macOS) or `sudo apt install ffmpeg` on Linux.
@@ -445,6 +441,10 @@ My full speech enabled config then looks like:
     (when rk/default-audio-device)
     (setq whisper--ffmpeg-input-device (format ":%s" rk/default-audio-device))))
 ```
+
+###### Alternative: Siri dictation
+
+On macOS, instead of whisper, you can also use the built-in Siri dictation. To enable that, go to `Preferences -> Keyboard -> Dictation`, enable it and set up a shortcut. The default is ctrl-ctrl.
 
 #### espeak / greader
 
