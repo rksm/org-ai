@@ -107,7 +107,7 @@ result."
   (let* ((context (org-ai-special-block))
          (info (org-ai-get-block-info context))
          (unexpanded-content (org-ai-get-block-content context))
-         (content (if (string-equal-ignore-case "yes" (alist-get :noweb info "no"))
+         (content (if (eq 't (compare-strings "yes" 0 nil (alist-get :noweb info "no") 0 nil t)) ; string-equal-ignore-case
                       (org-babel-expand-noweb-references (list "markdown" unexpanded-content))
                       unexpanded-content))
          (req-type (org-ai--request-type info))

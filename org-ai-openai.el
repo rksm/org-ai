@@ -112,7 +112,7 @@ For chat completion responses.")
 
 (defvar org-ai-after-chat-insertion-hook nil
   "Hook that is called when a chat response is inserted.
-Note this is alled for every stream response so it will typically
+Note this is called for every stream response so it will typically
 only contain fragments.")
 
 (defvar org-ai--current-insert-position-marker nil
