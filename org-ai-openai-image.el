@@ -64,10 +64,7 @@ to the file name."
   "Generate an image with `PROMPT'. Use `SIZE' to determine the size of the image.
 `N' specifies the number of images to generate. If `CALLBACK' is
 given, call it with the file name of the image as argument."
-  (unless org-ai-openai-api-token
-    (error "Please set `org-ai-openai-api-token' to your OpenAI API token"))
-  (let* ((token org-ai-openai-api-token)
-         (url-request-extra-headers `(("Authorization" . ,(string-join `("Bearer" ,token) " "))
+  (let* ((url-request-extra-headers `(("Authorization" . ,(string-join `("Bearer" ,(org-ai--openai-get-token)) " "))
                                       ("Content-Type" . "application/json")))
          (url-request-method "POST")
          (endpoint org-ai-openai-image-generation-endpoint)
@@ -143,8 +140,6 @@ Use `SIZE' to determine the size of the image. `N' specifies the
 number of images to generate. If `CALLBACK' is given, call it
 with the file name of the image as argument. Note this requries
 curl to be installed."
-  (unless org-ai-openai-api-token
-    (error "Please set `org-ai-openai-api-token' to your OpenAI API token"))
   (unless (executable-find "curl")
     (error "Unable to find curl"))
   (let ((command (format "curl --silent %s \\
@@ -154,7 +149,7 @@ curl to be installed."
                          -F size=\"%s\" \\
                          -F response_format=\"b64_json\""
                          org-ai-openai-image-variation-endpoint
-                         org-ai-openai-api-token
+                         (org-ai--openai-get-token)
                          image-file-path
                          n
                          size)))

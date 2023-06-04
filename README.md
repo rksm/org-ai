@@ -367,7 +367,7 @@ Alternatively, `org-ai` supports `auth-source` for retrieving your API key. You 
 machine api.openai.com login org-ai password <your-api-key>
 ```
 
-in your `~/authinfo.gpg` file. If this is present, `org-ai-openai-api-token` will be automatically set that value. If you do not want `org-ai` to try to retrieve the key from `auth-source`, you can set `org-ai-use-auth-source` to `nil` before loading `org-ai`.
+in your `~/authinfo.gpg` file. If this is present, org-ai will use this mechanism to retrieve the token when a request is made. If you do not want `org-ai` to try to retrieve the key from `auth-source`, you can set `org-ai-use-auth-source` to `nil` before loading `org-ai`.
 
 ### Setting up speech input / output
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.7] - 2023-06-04
+### Changed
+- make token retrieval via `auth-source` on demand
+
 ## [0.3.6] - 2023-05-30
 ### Changed
 - fix for `string-equal-ignore-case` issue (https://github.com/rksm/org-ai/issues/53)

@@ -33,7 +33,9 @@
 (require 'org-ai-block)
 
 (defcustom org-ai-openai-api-token nil
-  "This is your OpenAI API token that you need to specify. You can retrieve it at https://platform.openai.com/account/api-keys."
+  "This is your OpenAI API token that you need to specify if you do
+not store the token in auth-sources. You can retrieve it at
+https://platform.openai.com/account/api-keys."
   :type 'string
   :group 'org-ai)
 
@@ -45,10 +47,14 @@ in the `auth-sources' file."
   :type 'boolean
   :group 'org-ai)
 
-(when (and org-ai-use-auth-source (not org-ai-openai-api-token))
-  (require 'auth-source)
-  (when-let ((secret (auth-source-pick-first-password :host "api.openai.com" :user "org-ai")))
-    (setq org-ai-openai-api-token secret)))
+(defun org-ai--openai-get-token ()
+  "Try to get the openai token, either from
+`org-ai-openai-api-token' or from auth-source."
+  (or org-ai-openai-api-token
+      (when org-ai-use-auth-source
+        (require 'auth-source)
+        (auth-source-pick-first-password :host "api.openai.com" :user "org-ai"))
+      (error "Please set `org-ai-openai-api-token' to your OpenAI API token or setup auth-source (see org-ai readme)")))
 
 (defcustom org-ai-default-completion-model "text-davinci-003"
   "The default model to use for completion requests. See https://platform.openai.com/docs/models for other options."
@@ -269,10 +275,7 @@ model to use. `MAX-TOKENS' is the maximum number of tokens to
 generate. `TEMPERATURE' is the temperature of the distribution.
 `TOP-P' is the top-p value. `FREQUENCY-PENALTY' is the frequency
 penalty. `PRESENCE-PENALTY' is the presence penalty."
-  (unless org-ai-openai-api-token
-    (error "Please set `org-ai-openai-api-token' to your OpenAI API token"))
-  (let* ((token org-ai-openai-api-token)
-         (url-request-extra-headers `(("Authorization" . ,(encode-coding-string (string-join `("Bearer" ,token) " ") 'utf-8))
+  (let* ((url-request-extra-headers `(("Authorization" . ,(encode-coding-string (string-join `("Bearer" ,(org-ai--openai-get-token)) " ") 'utf-8))
                                       ("Content-Type" . "application/json")))
          (url-request-method "POST")
          (endpoint (if messages org-ai-openai-chat-endpoint org-ai-openai-completion-endpoint))
@@ -315,10 +318,7 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
 `TOP-P' is the top-p value.
 `FREQUENCY-PENALTY' is the frequency penalty.
 `PRESENCE-PENALTY' is the presence penalty."
-  (unless org-ai-openai-api-token
-    (error "Please set `org-ai-openai-api-token' to your OpenAI API token"))
-  (let* ((token org-ai-openai-api-token)
-         (url-request-extra-headers `(("Authorization" . ,(encode-coding-string (string-join `("Bearer" ,token) " ") 'utf-8))
+  (let* ((url-request-extra-headers `(("Authorization" . ,(encode-coding-string (string-join `("Bearer" ,(org-ai--openai-get-token)) " ") 'utf-8))
                                       ("Content-Type" . "application/json")))
          (url-request-method "POST")
          (endpoint (if messages org-ai-openai-chat-endpoint org-ai-openai-completion-endpoint))
