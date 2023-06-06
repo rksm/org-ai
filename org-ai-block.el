@@ -63,6 +63,7 @@ pairs from `org-ai-get-block-info'."
    ((not (eql 'x (alist-get :chat info 'x))) 'chat)
    ((not (eql 'x (alist-get :completion info 'x))) 'completion)
    ((not (eql 'x (alist-get :image info 'x))) 'image)
+   ((not (eql 'x (alist-get :sd-image info 'x))) 'sd-image)
    (t 'chat)))
 
 (defun org-ai--chat-role-regions ()

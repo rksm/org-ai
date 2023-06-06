@@ -117,6 +117,7 @@ result."
       (completion (org-ai-stream-completion :prompt content
                                             :context context))
       (image (org-ai-create-and-embed-image context))
+      (sd-image (org-ai-create-and-embed-sd context))
       (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages
                                               content
                                               org-ai-default-chat-system-prompt
