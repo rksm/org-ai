@@ -89,6 +89,7 @@
 (require 'org-ai-useful)
 (require 'org-ai-on-project)
 (require 'org-ai-talk)
+(require 'org-ai-sd)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

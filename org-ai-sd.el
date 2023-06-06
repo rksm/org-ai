@@ -199,7 +199,8 @@ given, call it with the file name of the image as argument."
   "Return the path of the Nth previous embeded image before the cursor position."
   (interactive "nNumber of images to go back: ")
   (if (>= number 0)
-      (error "Number must be negative.")
+      (let ((debug-on-error t))
+        (error "Number must be negative."))
     (let ((result nil)
           (pos (point))
           (limit (point-min)))
@@ -212,7 +213,10 @@ given, call it with the file name of the image as argument."
                 (setq result (substring-no-properties path)))))
           (setq limit (point-min)))
         (goto-char pos))
-      result)))
+      (if (null result)
+          (let ((debug-on-error t))
+            (error "image not found"))
+        result))))
 
 (defun get-org-image-path (label)
   "Get the path of the image with the specified LABEL in the current org buffer."
@@ -223,7 +227,9 @@ given, call it with the file name of the image as argument."
           (org-element-map paragraph 'link
             (lambda (link)
               (when (string= (org-element-property :type link) "file")
-                (throw 'found (org-element-property :path link))))))))))
+                (throw 'found (org-element-property :path link))))))))
+    (let ((debug-on-error t))
+      (error "image not found"))))
 
 (defun org-ai-create-and-embed-sd (context)
   "Create an image using Stable Diffusion web UI API with the prompt from the current block and embed the image in the current buffer. `CONTEXT` is the context object.
@@ -251,10 +257,14 @@ If none of these arguments are specified, the function processes the prompt as `
            (setq image-path (get-previous-image-path image-offset)))
           (image-ref
            (setq image-path (get-org-image-path image-ref))))
+    (if (and image-path (not (file-exists-p image-path)))
+      (let ((debug-on-error t))
+        (error "image not found")))
     (if org-ai-sd-model-id
         (org-ai--sd-options-request org-ai-sd-model-id))
     (if (null org-ai-sd-endpoint-base)
-        (error "org-ai-sd-endpoint-base is not specified"))
+      (let ((debug-on-error t))
+        (error "org-ai-sd-endpoint-base is not specified")))
     (org-ai--sd-request prompt
                        :n n
                        :size size
@@ -275,10 +285,9 @@ If none of these arguments are specified, the function processes the prompt as `
 (defun org-ai--sd-clip-base (model callback)
   (let* ((image-path (get-previous-image-path -1))
          (buffer (current-buffer)))
-    (if org-ai-sd-model-id
-        (org-ai--sd-options-request org-ai-sd-model-id))
     (if (null org-ai-sd-endpoint-base)
-        (error "org-ai-sd-endpoint-base is not specified"))
+      (let ((debug-on-error t))
+        (error "org-ai-sd-endpoint-base is not specified")))
     (org-ai--sd-interrogate-request image-path
                                     model
                                     callback)))
@@ -304,5 +313,6 @@ If none of these arguments are specified, the function processes the prompt as `
                            (message message)))))
 
 (provide 'org-ai-sd)
+
 
 ;;; org-ai-sd.el ends here
