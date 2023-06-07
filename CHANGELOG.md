@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.8] - 2023-06-08
+### Added
+- [Support](https://github.com/rksm/org-ai/pull/57) for stable diffusion based image generation through [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui) (Huge thanks [@yaak0](https://github.com/yaak0)!).
+
+```
+#+begin_ai :sd-image
+<PROMPT>
+#+end_ai
+```
+
 ## [0.3.7] - 2023-06-04
 ### Changed
 - make token retrieval via `auth-source` on demand

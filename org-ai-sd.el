@@ -24,18 +24,26 @@
 
 ;;; Code:
 
+(defgroup org-ai-sd nil
+  "Stable Diffusion web UI / image generation."
+  :group 'org-ai)
+
 (defcustom org-ai-sd-directory (expand-file-name "org-ai-images/" org-directory)
   "Directory where images are stored."
-  :group 'org-ai
+  :group 'org-ai-sd
   :type 'directory)
 
-(defvar org-ai-sd-endpoint-base nil
+(defcustom org-ai-sd-endpoint-base nil
   "Base URL for the Stable Diffusion web UI API. Specify a URL like
-\"http://your.server.name:7861/sdapi/v1/\". A trailing slash is required.")
+\"http://your.server.name:7861/sdapi/v1/\". A trailing slash is required."
+  :group 'org-ai-sd
+  :type 'string)
 
-(defvar org-ai-sd-model-id nil
+(defcustom org-ai-sd-model-id nil
   "Stable diffusion checkpoints. If not specified explicitly, the
-current setting will be used. A list of available models can be found at (org-ai-sd-models). ")
+current setting will be used. A list of available models can be found at (org-ai-sd-models). "
+  :group 'org-ai-sd
+  :type 'string)
 
 (defvar org-ai-sd-txt2img-options
       `((negative_prompt . "worst quality, low qualitytext, multipul angle, longbody, lowres, bad anatomy, bad hands, missing fingers, cropped")

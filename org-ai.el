@@ -1,10 +1,10 @@
-;;; org-ai.el --- Your AI assistant with ChatGPT, DALL-E, Whisper  -*- lexical-binding: t; -*-
+;;; org-ai.el --- Your AI assistant with ChatGPT, DALL-E, Whisper, Stable Diffusion  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2023 Robert Krahn
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Version: 0.3.7
+;; Version: 0.3.8
 ;; Package-Requires: ((emacs "28.2"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -26,7 +26,7 @@
 ;;; Commentary:
 
 ;; Provides a minor-mode for org-mode and a global minor-mode that allows you to
-;; interact with the OpenAI API. It allows you to:
+;; interact with the OpenAI API and with Stable Diffusion. It allows you to:
 ;; - have a conversation with ChatGPT
 ;; - generate images with DALL-E
 ;; - supports speech input and output

@@ -2,13 +2,17 @@
 
 [![org-ai video](doc/org-ai-youtube-thumb-github.png)](https://www.youtube.com/watch?v=fvBDxiFPG6I)
 
-Minor mode for Emacs org-mode that provides access to OpenAI API's. Inside an org-mode buffer you can
+Minor mode for Emacs org-mode that provides access to generative AI models. Currently supported are
+- OpenAI API (ChatGPT, DALL-E, other text models)
+- Stable Diffusion through [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
+
+Inside an org-mode buffer you can
 - use ChatGPT to generate text, having full control over system and user prompts ([demo](#chatgpt-in-org-mode))
 - Speech input and output! Talk with your AI!
-- generate images and image variations with a text prompt using DALL-E ([demo 1](#dall-e-in-org-mode), [demo 2](#image-variations))
+- generate images and image variations with a text prompt using Stable Diffusion or DALL-E ([demo 1](#dall-e-in-org-mode), [demo 2](#image-variations))
 - org-ai everywhere: Various commands usable outside org-mode for prompting using the selected text or multiple files.
 
-_Note: In order to use this you'll need an [OpenAI account](https://platform.openai.com/) and you need to get an API token. As far as I can tell, the current usage limits for the free tier get you pretty far._
+_Note: In order to use the OpenAI API you'll need an [OpenAI account](https://platform.openai.com/) and you need to get an API token. As far as I can tell, the current usage limits for the free tier get you pretty far._
 
 ------------------------------
 
@@ -37,6 +41,7 @@ _Note: In order to use this you'll need an [OpenAI account](https://platform.ope
     - [Setting up speech input / output](#setting-up-speech-input--output)
         - [Whisper](#whisper)
         - [espeak / greader](#espeak--greader)
+    - [Setting up Stable Diffusion](#setting-up-stable-diffusion)
 - [FAQ](#faq)
 
 ## Demos
@@ -161,6 +166,32 @@ When you add an `:image` option to the ai block, the prompt will be used for ima
 
 The following custom variables can be used to configure the image generation:
 - `org-ai-image-directory` - where to store the generated images (default: `~/org/org-ai-images/`)
+
+##### For Stable Diffusion
+
+Similar to DALL-E but use
+
+```
+#+begin_ai :sd-image
+<PROMPT>
+#+end_ai
+```
+
+You can run img2img by labeling your org-mode image with #+name and
+referencing it with :image-ref from your org-ai block.
+
+```
+#+begin_ai :sd-image :image-ref label1
+forest, Gogh style
+#+end_ai
+```
+
+M-x org-ai-sd-clip guesses the previous image's prompt on org-mode
+by the CLIP interrogator and saves it in the kill ring.
+
+M-x org-ai-sd-deepdanbooru guesses the previous image's prompt on
+org-mode by the DeepDanbooru interrogator and saves it in the kill
+ring.
 
 ##### Other text models
 
@@ -449,6 +480,23 @@ On macOS, instead of whisper, you can also use the built-in Siri dictation. To e
 #### espeak / greader
 
 Speech output on non-macOS systems defaults to using the [greader](http://elpa.gnu.org/packages/greader.html) package which uses [espeak](https://espeak.sourceforge.net/) underneath to synthesize speech. You will need to install greader manually (e.g. via `M-x package-install`). From that point on it should "just work". You can test it by selecting some text and calling `M-x org-ai-talk-read-region`.
+
+### Setting up Stable Diffusion
+
+An API for Stable Diffusion can be hosted with the [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui) project. Go through the [install steps for your platform](https://github.com/AUTOMATIC1111/stable-diffusion-webui#installation-and-running), then start an API-only server:
+
+```sh
+cd path/to/stable-diffusion-webui
+./webui.sh --nowebui
+```
+
+This will start a server on http://127.0.0.1:7861 by default. In order to use it with org-ai, you need to set `org-ai-sd-endpoint-base`:
+
+```elisp
+(setq org-ai-sd-endpoint-base "http://localhost:7861/sdapi/v1/")
+```
+
+If you use a server hosted elsewhere, change that URL accordingly.
 
 ## FAQ
 
