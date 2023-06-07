@@ -47,6 +47,10 @@ key-value pairs."
          (string (string-trim-left (replace-regexp-in-string "^#\\+begin_ai" "" string))))
     (org-babel-parse-header-arguments string)))
 
+(defun org-ai--string-equal-ignore-case (string1 string2)
+  "Helper for backwards compat."
+  (eq 't (compare-strings string1 0 nil string2 0 nil t)))
+
 (defun org-ai-get-block-content (&optional context)
   "Extracts the text content of the #+begin_ai...#+end_ai block.
 `CONTEXT' is the context of the special block.
@@ -61,7 +65,7 @@ Will expand noweb templates if an 'org-ai-noweb' property or 'noweb' header arg 
          (noweb-control (or (alist-get :noweb info nil)
                             (org-entry-get (point) "org-ai-noweb" 1)
                             "no"))
-         (content (if (string-equal-ignore-case "yes" noweb-control)
+         (content (if (org-ai--string-equal-ignore-case "yes" noweb-control)
                       (org-babel-expand-noweb-references (list "markdown" unexpanded-content))
                       unexpanded-content)))
     content))
