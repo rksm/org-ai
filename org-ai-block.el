@@ -49,11 +49,22 @@ key-value pairs."
 
 (defun org-ai-get-block-content (&optional context)
   "Extracts the text content of the #+begin_ai...#+end_ai block.
-`CONTEXT' is the context of the special block."
+`CONTEXT' is the context of the special block.
+
+Will expand noweb templates if an 'org-ai-noweb' property or 'noweb' header arg is \"yes\""
+
   (let* ((context (or context (org-ai-special-block)))
          (content-start (org-element-property :contents-begin context))
-         (content-end (org-element-property :contents-end context)))
-    (string-trim (buffer-substring-no-properties content-start content-end))))
+         (content-end (org-element-property :contents-end context))
+         (unexpanded-content (string-trim (buffer-substring-no-properties content-start content-end)))
+         (info (org-ai-get-block-info context))
+         (noweb-control (or (alist-get :noweb info nil)
+                            (org-entry-get (point) "org-ai-noweb" 1)
+                            "no"))
+         (content (if (string-equal-ignore-case "yes" noweb-control)
+                      (org-babel-expand-noweb-references (list "markdown" unexpanded-content))
+                      unexpanded-content)))
+    content))
 
 (defun org-ai--request-type (info)
   "Look at the header of the #+begin_ai...#+end_ai block.

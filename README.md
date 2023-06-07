@@ -282,6 +282,10 @@ With `:noweb yes`
 #+end_ai
 ```
 
+You can also trigger noweb expansion with an `org-ai-noweb: yes` heading proprty anywhere in the parent headings (header args takes precedence).
+
+To see what your document will expand to when sent to the api, run `org-ai-expand-block`.
+
 #### Run arbitrary lisp inline
 
 This is a hack but it works really well.

@@ -107,10 +107,7 @@ result."
   (interactive)
   (let* ((context (org-ai-special-block))
          (info (org-ai-get-block-info context))
-         (unexpanded-content (org-ai-get-block-content context))
-         (content (if (eq 't (compare-strings "yes" 0 nil (alist-get :noweb info "no") 0 nil t)) ; string-equal-ignore-case
-                      (org-babel-expand-noweb-references (list "markdown" unexpanded-content))
-                      unexpanded-content))
+         (content (org-ai-get-block-content context))
          (req-type (org-ai--request-type info))
          (sys-prompt-for-all-messages (or (not (eql 'x (alist-get :sys-everywhere info 'x)))
                                           org-ai-default-inject-sys-prompt-for-all-messages)))
@@ -124,6 +121,17 @@ result."
                                               org-ai-default-chat-system-prompt
                                               sys-prompt-for-all-messages)
                                    :context context)))))
+
+(defun org-ai-expand-block (&optional context)
+  "Pop a temp buffer showing what the org-ai block expands to and what will be sent to the api."
+  (interactive)
+  (let* ((context (or context (org-ai-special-block)))
+         (expanded (org-ai-get-block-content context)))
+    (if (called-interactively-p 'any)
+        (let ((buf (get-buffer-create "*Org-Ai Preview*")))
+          (with-help-window buf (with-current-buffer buf
+                                  (insert expanded))))
+      expanded)))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; keyboard quit
