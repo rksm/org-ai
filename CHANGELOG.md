@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.9] - 2023-06-23
+### Added
+- Add `gpt-3.5-turbo-16k` to `org-ai-chat-models`
+### Changed
+- fix detecting role vs content in the API response that has changed with the last OpenAI update (https://github.com/rksm/org-ai/issues/58)
+
 ## [0.3.8] - 2023-06-08
 ### Added
 - [Support](https://github.com/rksm/org-ai/pull/57) for stable diffusion based image generation through [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui) (Huge Thanks [@yaak0](https://github.com/yaak0)!).

@@ -67,6 +67,7 @@ in the `auth-sources' file."
   :group 'org-ai)
 
 (defcustom org-ai-chat-models '("gpt-3.5-turbo"
+                                "gpt-3.5-turbo-16k"
                                 "gpt-4"
                                 "gpt-4-32k")
   "Alist of available chat models. See https://platform.openai.com/docs/models."
@@ -235,15 +236,6 @@ the response into."
                         (choice (aref choices 0))
                         (delta (plist-get choice 'delta)))
                   (cond
-                   ((plist-get delta 'content)
-                    (let ((text (plist-get delta 'content)))
-                      (when (or org-ai--chat-got-first-response (not (string= (string-trim text) "")))
-                        (when (and (not org-ai--chat-got-first-response) (string-prefix-p "```" text))
-                          ;; start markdown codeblock responses on their own line
-                          (insert "\n"))
-                        (insert (decode-coding-string text 'utf-8))
-                        (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text))
-                      (setq org-ai--chat-got-first-response t)))
                    ((plist-get delta 'role)
                     (let ((role (plist-get delta 'role)))
                       (progn
@@ -255,7 +247,16 @@ the response into."
                           (insert "\n[ME]: "))
                          ((string= role "system")
                           (insert "\n[SYS]: ")))
-                        (run-hook-with-args 'org-ai-after-chat-insertion-hook 'role role))))))
+                        (run-hook-with-args 'org-ai-after-chat-insertion-hook 'role role))))
+                   ((plist-get delta 'content)
+                    (let ((text (plist-get delta 'content)))
+                      (when (or org-ai--chat-got-first-response (not (string= (string-trim text) "")))
+                        (when (and (not org-ai--chat-got-first-response) (string-prefix-p "```" text))
+                          ;; start markdown codeblock responses on their own line
+                          (insert "\n"))
+                        (insert (decode-coding-string text 'utf-8))
+                        (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text))
+                      (setq org-ai--chat-got-first-response t)))))
 
               (setq org-ai--current-insert-position-marker (point-marker))))))
 
