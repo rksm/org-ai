@@ -166,12 +166,15 @@ Will always return t if `org-ai-talk-confirm-speech-input' is nil."
 ;; org-ai-on-region
 
 (defcustom org-ai-on-region-file nil
-  "Optional file that used to store the `org-ai-on-region' conversations in.
+  "Optional file used to store the `org-ai-on-region' conversations in.
 If nil, a buffer with no file backing is used. If a file is
-specified, new conversations are appended to the file."
+specified, new conversations are appended to the file or
+function's output. Function should take no arguments and return a
+filename."
   :group 'org-ai
   :type '(choice (const :tag "No file" nil)
-                 (file :tag "File")))
+                 (file :tag "File")
+                 (function :tag "Function")))
 
 ;; (setq org-ai-on-region-file (expand-file-name "org-ai-on-region.org" org-directory))
 
