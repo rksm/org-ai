@@ -30,7 +30,7 @@
 
 (defun org-ai-special-block ()
   "Are we inside a #+begin_ai...#+end_ai block?"
-  (let (org-element-use-cache) ;; with cache enabled we get weird Cached element is incorrect warnings
+  (org-element-with-disabled-cache ;; with cache enabled we get weird Cached element is incorrect warnings
     (cl-loop with context = (org-element-context)
              while (and context (not (equal 'special-block (org-element-type context))))
              do (setq context (org-element-property :parent context))
@@ -86,12 +86,13 @@ pairs from `org-ai-get-block-info'."
   (if-let* ((context (org-ai-special-block))
             (content-start (org-element-property :contents-begin context))
             (content-end (org-element-property :contents-end context)))
-      (let ((result (save-excursion
-                      (goto-char content-start)
-                      (cl-loop with result
-                               while (search-forward-regexp "\\[SYS\\]:\\|\\[ME\\]:\\|\\[AI\\]:" content-end t)
-                               do (push (match-beginning 0) result)
-                               finally return result))))
+      (let ((result (save-match-data
+                      (save-excursion
+                        (goto-char content-start)
+                        (cl-loop with result
+                                 while (search-forward-regexp "\\[SYS\\]:\\|\\[ME\\]:\\|\\[AI\\]:" content-end t)
+                                 do (push (match-beginning 0) result)
+                                 finally return result)))))
         (if result
             (cl-concatenate 'list (list content-start) (reverse result) (list content-end))
           (list content-start content-end)))))

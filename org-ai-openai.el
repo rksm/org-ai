@@ -434,48 +434,49 @@ the beginning and end of the range of changed text,
 and the length in chars of the pre-change text replaced by that range."
   (with-current-buffer org-ai--current-request-buffer-for-stream
     (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
-      (save-excursion
-        (if org-ai--url-buffer-last-position-marker
-            (goto-char org-ai--url-buffer-last-position-marker)
-          (goto-char url-http-end-of-headers)
-          (setq org-ai--url-buffer-last-position-marker (point-marker)))
+      (save-match-data
+        (save-excursion
+          (if org-ai--url-buffer-last-position-marker
+              (goto-char org-ai--url-buffer-last-position-marker)
+            (goto-char url-http-end-of-headers)
+            (setq org-ai--url-buffer-last-position-marker (point-marker)))
 
-        ;; Avoid a bug where we skip responses because url has modified the http
-        ;; buffer and we are not where we think we are.
-        ;; TODO this might break
-        (unless (eolp)
-          (beginning-of-line))
+          ;; Avoid a bug where we skip responses because url has modified the http
+          ;; buffer and we are not where we think we are.
+          ;; TODO this might break
+          (unless (eolp)
+            (beginning-of-line))
 
-        (let ((errored nil))
-          ;; (setq org-ai--debug-data-raw
-          ;;       (append org-ai--debug-data-raw
-          ;;               (list
-          ;;                (list (buffer-substring-no-properties (point-min) (point-max))
-          ;;                      (point)))))
+          (let ((errored nil))
+            ;; (setq org-ai--debug-data-raw
+            ;;       (append org-ai--debug-data-raw
+            ;;               (list
+            ;;                (list (buffer-substring-no-properties (point-min) (point-max))
+            ;;                      (point)))))
 
-          (while (and (not errored) (search-forward "data: " nil t))
-            (let* ((line (buffer-substring-no-properties (point) (line-end-position))))
-              ;; (message "...found data: %s" line)
-              (if (string= line "[DONE]")
-                  (progn
-                    (when org-ai--current-request-callback
-                      (funcall org-ai--current-request-callback nil))
-                    (set-marker org-ai--url-buffer-last-position-marker (point))
-                    (org-ai-reset-stream-state)
-                    (message "org-ai request done"))
-                (let ((json-object-type 'plist)
-                      (json-key-type 'symbol)
-                      (json-array-type 'vector))
-                  (condition-case _err
-                      (let ((data (json-read-from-string line)))
-			(end-of-line)
-                        ;; (setq org-ai--debug-data (append org-ai--debug-data (list data)))
-                        (when org-ai--current-request-callback
-                          (funcall org-ai--current-request-callback data))
-                        (set-marker org-ai--url-buffer-last-position-marker (point)))
-                    (error
-                     (setq errored t)
-                     (goto-char org-ai--url-buffer-last-position-marker))))))))))))
+            (while (and (not errored) (search-forward "data: " nil t))
+              (let* ((line (buffer-substring-no-properties (point) (line-end-position))))
+                ;; (message "...found data: %s" line)
+                (if (string= line "[DONE]")
+                    (progn
+                      (when org-ai--current-request-callback
+                        (funcall org-ai--current-request-callback nil))
+                      (set-marker org-ai--url-buffer-last-position-marker (point))
+                      (org-ai-reset-stream-state)
+                      (message "org-ai request done"))
+                  (let ((json-object-type 'plist)
+                        (json-key-type 'symbol)
+                        (json-array-type 'vector))
+                    (condition-case _err
+                        (let ((data (json-read-from-string line)))
+			  (end-of-line)
+                          ;; (setq org-ai--debug-data (append org-ai--debug-data (list data)))
+                          (when org-ai--current-request-callback
+                            (funcall org-ai--current-request-callback data))
+                          (set-marker org-ai--url-buffer-last-position-marker (point)))
+                      (error
+                       (setq errored t)
+                       (goto-char org-ai--url-buffer-last-position-marker)))))))))))))
 
 (defun org-ai-interrupt-current-request ()
   "Interrupt the current request."
