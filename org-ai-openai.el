@@ -266,7 +266,8 @@ the response into."
         (goto-char org-ai--current-insert-position-marker))
       (let ((text "\n\n[ME]: "))
         (insert text)
-        (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end text)))))
+        (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end text))
+      (org-element-cache-reset))))
 
 (cl-defun org-ai-stream-request (&optional &key prompt messages model max-tokens temperature top-p frequency-penalty presence-penalty callback)
   "Send a request to the OpenAI API.
