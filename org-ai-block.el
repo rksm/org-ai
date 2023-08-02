@@ -42,10 +42,13 @@
 key-value pairs."
   (let* ((context (or context (org-ai-special-block)))
          (header-start (org-element-property :post-affiliated context))
-         (header-end (org-element-property :contents-begin context))
-         (string (string-trim (buffer-substring-no-properties header-start header-end)))
-         (string (string-trim-left (replace-regexp-in-string "^#\\+begin_ai" "" string))))
-    (org-babel-parse-header-arguments string)))
+         (header-end (org-element-property :contents-begin context)))
+    (if (or (not header-start) (not header-end))
+        (error "org-ai was not able to extract the beginning/end of the org-ai block.")
+      (save-match-data
+        (let* ((string (string-trim (buffer-substring-no-properties header-start header-end)))
+               (string (string-trim-left (replace-regexp-in-string "^#\\+begin_ai" "" string))))
+          (org-babel-parse-header-arguments string))))))
 
 (defun org-ai--string-equal-ignore-case (string1 string2)
   "Helper for backwards compat."
