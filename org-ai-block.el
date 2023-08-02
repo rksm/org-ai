@@ -32,7 +32,9 @@
   "Are we inside a #+begin_ai...#+end_ai block?"
   (org-element-with-disabled-cache ;; with cache enabled we get weird Cached element is incorrect warnings
     (cl-loop with context = (org-element-context)
-             while (and context (not (equal 'special-block (org-element-type context))))
+             while (and context
+                        (not (equal 'special-block (org-element-type context)))
+                        (not (string-equal "ai" (org-element-property :type context))))
              do (setq context (org-element-property :parent context))
              finally return context)))
 
