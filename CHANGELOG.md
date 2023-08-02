@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.10] - 2023-08-02
+### Changed
+- Allow dynamic `org-ai-on-region-file` (https://github.com/rksm/org-ai/pull/71) (i.e you can add a function to handle it)
+- Emacs 27 as minimal required version
+- call `org-element-cache-reset` after insertion to avoid org warnings (see https://github.com/rksm/org-ai/issues/16 and https://github.com/rksm/org-ai/issues/63)
+- Double check special block properties when extracting org-ai block.
+
 ## [0.3.9] - 2023-06-23
 ### Added
 - Add `gpt-3.5-turbo-16k` to `org-ai-chat-models`
