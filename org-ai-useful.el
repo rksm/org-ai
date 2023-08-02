@@ -300,9 +300,12 @@ be guessed from the current major mode."
                              ('text (lambda (text) (org-ai--prompt-on-region-create-text-prompt question text)))
                              ('code (lambda (text) (org-ai--prompt-on-region-create-code-prompt question text)))
                              (_ (error "Invalid text-kind: %s" text-kind))))
-           (output-buffer (or buffer-name
-                              (when org-ai-on-region-file (find-file-noselect org-ai-on-region-file))
-                              "*org-ai-on-region*")))
+           (output-buffer (let ((file (if (functionp org-ai-on-region-file)
+                                          (funcall org-ai-on-region-file)
+                                        org-ai-on-region-file)))
+                            (or buffer-name
+                                (when file (find-file-noselect file))
+                                "*org-ai-on-region*"))))
       (org-ai--output-to-org-buffer start end text-prompt-fn output-buffer
                                     :show-output-buffer t
                                     ;; :callback (lambda ()
