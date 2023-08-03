@@ -40,6 +40,9 @@ _Note: In order to use the OpenAI API you'll need an [OpenAI account](https://pl
     - [OpenAI API key](#openai-api-key)
     - [Setting up speech input / output](#setting-up-speech-input--output)
         - [Whisper](#whisper)
+            - [macOS specific steps](#macos-specific-steps)
+                - [macOS alternative: Siri dictation](#macos-alternative-siri-dictation)
+            - [Windows specific steps](#windows-specific-steps)
         - [espeak / greader](#espeak--greader)
     - [Setting up Stable Diffusion](#setting-up-stable-diffusion)
 - [FAQ](#faq)
@@ -477,9 +480,20 @@ My full speech enabled config then looks like:
     (setq whisper--ffmpeg-input-device (format ":%s" rk/default-audio-device))))
 ```
 
-###### Alternative: Siri dictation
+###### macOS alternative: Siri dictation
 
 On macOS, instead of whisper, you can also use the built-in Siri dictation. To enable that, go to `Preferences -> Keyboard -> Dictation`, enable it and set up a shortcut. The default is ctrl-ctrl.
+
+##### Windows specific steps
+
+The way (defun whisper--check-install-and-run) is implemented does not work on Win10 (see https://github.com/rksm/org-ai/issues/66).
+
+A workaround is to install whisper.cpp and model manually and patch:
+
+``` elisp
+(defun whisper--check-install-and-run (buffer status)
+  (whisper--record-audio))
+```
 
 #### espeak / greader
 
