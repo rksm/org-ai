@@ -24,6 +24,7 @@
 
 (require 'org)
 (require 'org-element)
+(require 'org-macs)
 
 (when (and (boundp 'org-protecting-blocks) (listp org-protecting-blocks))
   (add-to-list 'org-protecting-blocks "ai"))

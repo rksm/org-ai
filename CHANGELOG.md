@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.11] - 2023-08-03
+### Changed
+- Add `(require 'org-macs)` for `org-element-with-disabled-cache` that was added in 0.3.10
+
 ## [0.3.10] - 2023-08-02
 ### Changed
 - Allow dynamic `org-ai-on-region-file` (https://github.com/rksm/org-ai/pull/71) (i.e you can add a function to handle it)
