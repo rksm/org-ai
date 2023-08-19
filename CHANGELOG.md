@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.12] - 2023-08-19
+### Changed
+- Fix `org-ai-global-mode` definition (https://github.com/rksm/org-ai/issues/76)
+
 ## [0.3.11] - 2023-08-03
 ### Changed
 - Add `(require 'org-macs)` for `org-element-with-disabled-cache` that was added in 0.3.10

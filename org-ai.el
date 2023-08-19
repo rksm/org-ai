@@ -4,7 +4,7 @@
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Version: 0.3.11
+;; Version: 0.3.12
 ;; Package-Requires: ((emacs "27"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -221,7 +221,6 @@ It's designed to \"do the right thing\":
   "Non `org-mode' specific minor mode for the OpenAI API."
         :init-value nil
         :lighter ""
-        :diminish
         :global t
         :keymap org-ai-global-mode-map
         :group 'org-ai)
