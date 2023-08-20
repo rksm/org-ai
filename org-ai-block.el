@@ -29,9 +29,17 @@
 (when (and (boundp 'org-protecting-blocks) (listp org-protecting-blocks))
   (add-to-list 'org-protecting-blocks "ai"))
 
+;; `org-element-with-disabled-cache' is not available pre org-mode 9.6.6, i.e.
+;; emacs 28 does not ship with it
+(defmacro org-ai--org-element-with-disabled-cache (&rest body)
+  "Run BODY without active org-element-cache."
+  (declare (debug (form body)) (indent 0))
+  `(cl-letf (((symbol-function #'org-element--cache-active-p) (lambda (&rest _) nil)))
+     ,@body))
+
 (defun org-ai-special-block ()
   "Are we inside a #+begin_ai...#+end_ai block?"
-  (org-element-with-disabled-cache ;; with cache enabled we get weird Cached element is incorrect warnings
+  (org-ai--org-element-with-disabled-cache ;; with cache enabled we get weird Cached element is incorrect warnings
     (cl-loop with context = (org-element-context)
              while (and context
                         (not (equal 'special-block (org-element-type context)))

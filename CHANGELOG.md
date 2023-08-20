@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.3.13] - 2023-08-20
+### Changed
+- add macro `org-ai--org-element-with-disabled-cache`. `org-element-with-disabled-cache` is not available pre org-mode 9.6.6. (resolves https://github.com/rksm/org-ai/issues/77)
+
 ## [0.3.12] - 2023-08-19
 ### Changed
 - Fix `org-ai-global-mode` definition (https://github.com/rksm/org-ai/issues/76)
