@@ -55,21 +55,24 @@ key-value pairs."
          (header-start (org-element-property :post-affiliated context))
          (header-end (org-element-property :contents-begin context)))
     (if (or (not header-start) (not header-end))
-        (error "org-ai was not able to extract the beginning/end of the org-ai block.")
+        (error "Error: org-ai was not able to extract the beginning/end of the org-ai block")
       (save-match-data
         (let* ((string (string-trim (buffer-substring-no-properties header-start header-end)))
                (string (string-trim-left (replace-regexp-in-string "^#\\+begin_ai" "" string))))
           (org-babel-parse-header-arguments string))))))
 
 (defun org-ai--string-equal-ignore-case (string1 string2)
-  "Helper for backwards compat."
+  "Helper for backwards compat.
+STRING1 and STRING2 are strings. Return t if they are equal
+ignoring case."
   (eq 't (compare-strings string1 0 nil string2 0 nil t)))
 
 (defun org-ai-get-block-content (&optional context)
   "Extracts the text content of the #+begin_ai...#+end_ai block.
 `CONTEXT' is the context of the special block.
 
-Will expand noweb templates if an 'org-ai-noweb' property or 'noweb' header arg is \"yes\""
+Will expand noweb templates if an 'org-ai-noweb' property or
+'noweb' header arg is \"yes\""
 
   (let* ((context (or context (org-ai-special-block)))
          (content-start (org-element-property :contents-begin context))
@@ -272,10 +275,12 @@ intercalated. The [SYS] prompt used is either
                                                     (user-prefix "[ME]: ")
                                                     (assistant-prefix "[AI]: "))
   "Converts a chat message to a string.
-`MESSAGE' is a vector of (:role :content) pairs. :role can be
+`MESSAGES' is a vector of (:role :content) pairs. :role can be
 'system, 'user or 'assistant. If `DEFAULT-SYSTEM-PROMPT' is
 non-nil, a [SYS] prompt is prepended if the first message is not
-a system message."
+a system message. `SYSTEM-PREFIX', `USER-PREFIX' and
+`ASSISTANT-PREFIX' are the prefixes for the respective roles
+inside the assembled prompt string."
   (let ((messages (if (and default-system-prompt
                            (not (eql (plist-get (aref messages 0) :role) 'system)))
                       (cl-concatenate 'vector (vector (list :role 'system :content default-system-prompt)) messages)

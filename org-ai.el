@@ -1,12 +1,11 @@
-;;; org-ai.el --- LLMs and image generation for Emacs. Support for ChatGPT (via OpenAI API) and local models such as LLaMA -*- lexical-binding: t; -*-
+;;; org-ai.el --- Use ChatGPT and other LLMs in org-mode and beyond -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2023 Robert Krahn
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
 ;; Version: 0.4.0
-;; Package-Requires: ((emacs "27")
-;;                    (websocket "1.15"))
+;; Package-Requires: ((emacs "27.1") (websocket "1.15"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -132,7 +131,8 @@ result."
                                    :context context)))))
 
 (defun org-ai-expand-block (&optional context)
-  "Pop a temp buffer showing what the org-ai block expands to and what will be sent to the api."
+  "Show a temp buffer with what the org-ai block expands to.
+This is what will be sent to the api. CONTEXT is the org-ai block."
   (interactive)
   (let* ((context (or context (org-ai-special-block)))
          (expanded (org-ai-get-block-content context)))

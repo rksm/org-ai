@@ -34,8 +34,8 @@
 
 
 (defcustom org-ai-oobabooga-websocket-url "ws://127.0.0.1:5005/api/v1/stream"
-  "URL to use for the websocket connection. See
-https://github.com/oobabooga/text-generation-webui#api."
+  "URL to use for the websocket connection.
+See https://github.com/oobabooga/text-generation-webui#api."
   :type 'string
   :group 'org-ai-oobabooga)
 
@@ -55,29 +55,26 @@ https://github.com/oobabooga/text-generation-webui#api."
   :group 'org-ai-oobabooga)
 
 (defcustom org-ai-oobabooga-default-system-prompt nil
-  "Default system prompt to use if none is specified. If nil, no
-system prompt is used."
+  "Default system prompt to use if none is specified.
+If nil, no system prompt is used."
   :type 'string
   :group 'org-ai-oobabooga)
 
 (defcustom org-ai-oobabooga-stopping-strings (list org-ai-oobabooga-user-prefix)
-  "List of strings that, if encountered in the response, will
-cause the stream to be stopped."
+  "List of strings that will cause the stream to be stopped."
   :type 'string
   :group 'org-ai-oobabooga)
 
 (defcustom org-ai-oobabooga-default-payload nil
-  "Default payload to add to all requests to the
-oobabooga/text-generation-webui server. E.g. if you want to set
-the temperature and top_p values:
+  "Default payload to add to all requests.
+E.g. if you want to set the temperature and top_p values:
   (setq org-ai-oobabooga-default-payload
         '((:temperature . 0.7) (:top_p . 0.1)))"
   :type 'alist
   :group 'org-ai-oobabooga)
 
 (defvar org-ai-oobabooga--current-request nil
-  "While a request is being processed, this variable holds the
-websocket for it.")
+  "Holds the websocket while a request is in progress.")
 
 (defvar org-ai-oobabooga--chat-got-first-response nil)
 (make-variable-buffer-local 'org-ai-oobabooga--chat-got-first-response)
@@ -86,21 +83,21 @@ websocket for it.")
 (make-variable-buffer-local 'org-ai-oobabooga--chat-ai-role-inserted)
 
 (defun org-ai--merge-alist (a &rest bs)
-  "Merge the alists A and BS. If a key exists in multiple alists,
-the value from the last alist is used."
+  "Merge the alists A and BS.
+If a key exists in multiple alists, the value from the last alist
+is used."
   (let ((result (copy-alist a)))
     (cl-loop for b in bs
              do (cl-loop for (k . v) in b
                          do (if (assoc k result)
                                 (setcdr (assoc k result) v)
-                              (add-to-list 'result (cons k v))))
+                              (push (cons k v) result)))
              finally return result)))
 
 (cl-defun org-ai-oobabooga-stream (&optional &key
                                              messages context
                                              max-tokens temperature top-p)
-  "Send a request to the oobabooga/text-generation-webui server from
-within an org-ai block.
+  "Send a request to the server from within an org-ai block.
 MESSAGES is a list of messages to send to the server.
 CONTEXT is the context of the block that is being processed.
 MAX-TOKENS is the max-tokens value to use.
@@ -123,7 +120,10 @@ TOP-P is the top-p value to use."
                                                     :assistant-prefix assistant-prefix
                                                     :system-prefix system-prefix)))
       (org-ai-oobabooga-stream-request :prompt prompt
-                                       :callback callback))))
+                                       :callback callback
+                                       :max-tokens max-tokens
+                                       :temperature temperature
+                                       :top-p top-p))))
 
 (cl-defun org-ai-oobabooga-stream-request (&optional &key
                                                      prompt callback
@@ -137,9 +137,9 @@ TOP-P is the top-p value to use."
   (let ((msg (let ((json-object-type 'alist)
                    (payload `((:prompt . ,prompt)
                               (:stopping_strings . ,org-ai-oobabooga-stopping-strings))))
-               (when max-tokens (add-to-list 'payload `(:max_new_tokens . ,max-tokens)))
-               (when temperature (add-to-list 'payload `(:temperature . ,temperature)))
-               (when top-p (add-to-list 'payload `(:top_p . ,top-p)))
+               (when max-tokens (push `(:max_new_tokens . ,max-tokens) payload))
+               (when temperature (push `(:temperature . ,temperature) payload))
+               (when top-p (push `(:top_p . ,top-p) payload))
                (when org-ai-oobabooga-default-payload
                  (setq payload (org-ai--merge-alist org-ai-oobabooga-default-payload payload)))
                (json-encode payload)))

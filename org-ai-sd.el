@@ -40,8 +40,9 @@
   :type 'string)
 
 (defcustom org-ai-sd-model-id nil
-  "Stable diffusion checkpoints. If not specified explicitly, the
-current setting will be used. A list of available models can be found at (org-ai-sd-models). "
+  "Stable diffusion checkpoints.
+If not specified explicitly, the current setting will be used. A
+list of available models can be found at (org-ai-sd-models)."
   :group 'org-ai-sd
   :type 'string)
 
@@ -60,8 +61,7 @@ current setting will be used. A list of available models can be found at (org-ai
         (denoising_strength . 0.7) ;; In img2img, refer even if it is not hr
         (hr_scale . 2)
         (hr_upscaler . "Latent") ;; (org-ai-sd-upscalers)
-        (hr_second_pass_steps . 17)
-        )
+        (hr_second_pass_steps . 17))
       "Specify options for txt2img and img2txt.")
       ;; https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/api/api.py
       ;; https://github.com/AUTOMATIC1111/stable-diffusion-webui/blob/master/modules/txt2img.py
@@ -203,7 +203,7 @@ given, call it with the file name of the image as argument."
          (goto-char url-http-end-of-headers)
          (funcall callback (cdr (assq 'caption (json-read)))))))))
 
-(defun get-previous-image-path (number)
+(defun org-ai-sd--get-previous-image-path (number)
   "Return the path of the Nth previous embeded image before the cursor position."
   (interactive "nNumber of images to go back: ")
   (if (>= number 0)
@@ -213,7 +213,7 @@ given, call it with the file name of the image as argument."
           (pos (point))
           (limit (point-min)))
       (save-excursion
-        (dotimes (i (abs number))
+        (dotimes (_ (abs number))
           (setq result nil)
           (while (and (not result) (re-search-backward "\\[\\[file:\\([^]]+\\)\\]" limit t))
             (let ((path (match-string 1)))
@@ -226,7 +226,7 @@ given, call it with the file name of the image as argument."
             (error "image not found"))
         result))))
 
-(defun get-org-image-path (label)
+(defun org-ai-sd--get-org-image-path (label)
   "Get the path of the image with the specified LABEL in the current org buffer."
   (catch 'found
     (org-element-map (org-element-parse-buffer) 'paragraph
@@ -262,9 +262,9 @@ If none of these arguments are specified, the function processes the prompt as `
     (cond (image-path
            nil)
           (image-offset
-           (setq image-path (get-previous-image-path image-offset)))
+           (setq image-path (org-ai-sd--get-previous-image-path image-offset)))
           (image-ref
-           (setq image-path (get-org-image-path image-ref))))
+           (setq image-path (org-ai-sd--get-org-image-path image-ref))))
     (if (and image-path (not (file-exists-p image-path)))
       (let ((debug-on-error t))
         (error "image not found")))
@@ -291,8 +291,7 @@ If none of these arguments are specified, the function processes the prompt as `
                                          (org-display-inline-images))))))))
 
 (defun org-ai--sd-clip-base (model callback)
-  (let* ((image-path (get-previous-image-path -1))
-         (buffer (current-buffer)))
+  (let* ((image-path (org-ai-sd--get-previous-image-path -1)))
     (if (null org-ai-sd-endpoint-base)
       (let ((debug-on-error t))
         (error "org-ai-sd-endpoint-base is not specified")))
