@@ -93,6 +93,7 @@ pairs from `org-ai-get-block-info'."
    ((not (eql 'x (alist-get :completion info 'x))) 'completion)
    ((not (eql 'x (alist-get :image info 'x))) 'image)
    ((not (eql 'x (alist-get :sd-image info 'x))) 'sd-image)
+   ((not (eql 'x (alist-get :local info 'x))) 'local-chat)
    (t 'chat)))
 
 (defun org-ai--chat-role-regions ()
@@ -264,6 +265,49 @@ intercalated. The [SYS] prompt used is either
 ;; (comment
 ;;   (with-current-buffer "org-ai-mode-test.org"
 ;;    (org-ai--collect-chat-messages (org-ai-get-block-content))))
+
+(cl-defun org-ai--stringify-chat-messages (messages &optional &key
+                                                    default-system-prompt
+                                                    (system-prefix "[SYS]: ")
+                                                    (user-prefix "[ME]: ")
+                                                    (assistant-prefix "[AI]: "))
+  "Converts a chat message to a string.
+`MESSAGE' is a vector of (:role :content) pairs. :role can be
+'system, 'user or 'assistant. If `DEFAULT-SYSTEM-PROMPT' is
+non-nil, a [SYS] prompt is prepended if the first message is not
+a system message."
+  (let ((messages (if (and default-system-prompt
+                           (not (eql (plist-get (aref messages 0) :role) 'system)))
+                      (cl-concatenate 'vector (vector (list :role 'system :content default-system-prompt)) messages)
+                    messages)))
+    (cl-loop for (_ role _ content) across messages
+             collect (cond ((eql role 'system) (concat system-prefix content))
+                           ((eql role 'user) (concat user-prefix content))
+                           ((eql role 'assistant) (concat assistant-prefix content)))
+             into result
+             finally return (string-join result "\n\n"))))
+
+(cl-assert
+ (equal
+  (org-ai--stringify-chat-messages '[(:role system :content "system")
+                                     (:role user :content "user")
+                                     (:role assistant :content "assistant")])
+  "[SYS]: system\n\n[ME]: user\n\n[AI]: assistant"))
+
+(cl-assert
+ (equal
+  (org-ai--stringify-chat-messages '[(:role user :content "user")
+                                     (:role assistant :content "assistant")]
+                                   :default-system-prompt "system")
+  "[SYS]: system\n\n[ME]: user\n\n[AI]: assistant"))
+
+(cl-assert
+ (equal
+  (org-ai--stringify-chat-messages '[(:role user :content "user")
+                                     (:role assistant :content "assistant")]
+                                   :user-prefix "You: "
+                                   :assistant-prefix "Assistant: ")
+  "You: user\n\nAssistant: assistant"))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

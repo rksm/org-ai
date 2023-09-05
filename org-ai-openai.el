@@ -291,7 +291,7 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
 					    :presence-penalty presence-penalty
                                             :stream t)))
 
-    (message "REQUEST %s" url-request-data)
+    ;; (message "REQUEST %s" url-request-data)
 
     (setq org-ai--current-request-callback callback)
 

@@ -1,11 +1,12 @@
-;;; org-ai.el --- Your AI assistant with ChatGPT, DALL-E, Whisper, Stable Diffusion  -*- lexical-binding: t; -*-
+;;; org-ai.el --- LLMs and image generation for Emacs. Support for ChatGPT (via OpenAI API) and local models such as LLaMA -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2023 Robert Krahn
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Version: 0.3.13
-;; Package-Requires: ((emacs "27"))
+;; Version: 0.4.0
+;; Package-Requires: ((emacs "27")
+;;                    (websocket "1.15"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -26,10 +27,12 @@
 ;;; Commentary:
 
 ;; Provides a minor-mode for org-mode and a global minor-mode that allows you to
-;; interact with the OpenAI API and with Stable Diffusion. It allows you to:
-;; - have a conversation with ChatGPT
-;; - generate images with DALL-E
-;; - supports speech input and output
+;; interact with the OpenAI API, with Stable Diffusion, as well as various local LLMs.
+;;
+;; It allows you to:
+;; - "chat" with a language model from within an org mode buffer
+;; - generate images
+;; - has support for speech input and output
 ;; - #+begin_ai..#+end_ai blocks for org-mode
 ;; - various commands usable everywhere
 ;;
@@ -90,6 +93,7 @@
 (require 'org-ai-on-project)
 (require 'org-ai-talk)
 (require 'org-ai-sd)
+(require 'org-ai-local)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -116,6 +120,11 @@ result."
                                             :context context))
       (image (org-ai-create-and-embed-image context))
       (sd-image (org-ai-create-and-embed-sd context))
+      (local-chat (org-ai-local-stream :messages (org-ai--collect-chat-messages
+                                                  content
+                                                  org-ai-default-chat-system-prompt
+                                                  sys-prompt-for-all-messages)
+                                       :context context))
       (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages
                                               content
                                               org-ai-default-chat-system-prompt
@@ -153,6 +162,8 @@ It's designed to \"do the right thing\":
              org-ai-talk--reading-process
              (process-live-p org-ai-talk--reading-process))
         (org-ai-talk-stop))
+       (org-ai-local--current-request
+        (org-ai-local-stop))
        (org-ai--current-request-buffer-for-stream
         (org-ai-interrupt-current-request))
        (org-ai--current-request-buffer
