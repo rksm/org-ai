@@ -1,11 +1,11 @@
-;;; org-ai.el --- Your AI assistant with ChatGPT, DALL-E, Whisper, Stable Diffusion  -*- lexical-binding: t; -*-
+;;; org-ai.el --- Use ChatGPT and other LLMs in org-mode and beyond -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2023 Robert Krahn
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Version: 0.3.13
-;; Package-Requires: ((emacs "27"))
+;; Version: 0.4.0
+;; Package-Requires: ((emacs "27.1") (websocket "1.15"))
 
 ;; This file is NOT part of GNU Emacs.
 
@@ -26,10 +26,12 @@
 ;;; Commentary:
 
 ;; Provides a minor-mode for org-mode and a global minor-mode that allows you to
-;; interact with the OpenAI API and with Stable Diffusion. It allows you to:
-;; - have a conversation with ChatGPT
-;; - generate images with DALL-E
-;; - supports speech input and output
+;; interact with the OpenAI API, with Stable Diffusion, as well as various local LLMs.
+;;
+;; It allows you to:
+;; - "chat" with a language model from within an org mode buffer
+;; - generate images
+;; - has support for speech input and output
 ;; - #+begin_ai..#+end_ai blocks for org-mode
 ;; - various commands usable everywhere
 ;;
@@ -90,6 +92,7 @@
 (require 'org-ai-on-project)
 (require 'org-ai-talk)
 (require 'org-ai-sd)
+(require 'org-ai-oobabooga)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -116,6 +119,11 @@ result."
                                             :context context))
       (image (org-ai-create-and-embed-image context))
       (sd-image (org-ai-create-and-embed-sd context))
+      (local-chat (org-ai-oobabooga-stream :messages (org-ai--collect-chat-messages
+                                                      content
+                                                      org-ai-default-chat-system-prompt
+                                                      sys-prompt-for-all-messages)
+                                           :context context))
       (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages
                                               content
                                               org-ai-default-chat-system-prompt
@@ -123,7 +131,8 @@ result."
                                    :context context)))))
 
 (defun org-ai-expand-block (&optional context)
-  "Pop a temp buffer showing what the org-ai block expands to and what will be sent to the api."
+  "Show a temp buffer with what the org-ai block expands to.
+This is what will be sent to the api. CONTEXT is the org-ai block."
   (interactive)
   (let* ((context (or context (org-ai-special-block)))
          (expanded (org-ai-get-block-content context)))
@@ -153,6 +162,8 @@ It's designed to \"do the right thing\":
              org-ai-talk--reading-process
              (process-live-p org-ai-talk--reading-process))
         (org-ai-talk-stop))
+       (org-ai-oobabooga--current-request
+        (org-ai-oobabooga-stop))
        (org-ai--current-request-buffer-for-stream
         (org-ai-interrupt-current-request))
        (org-ai--current-request-buffer
@@ -184,11 +195,11 @@ It's designed to \"do the right thing\":
 ;; create a minor-mode for org-mode
 (define-minor-mode org-ai-mode
   "Minor mode for `org-mode' integration with the OpenAI API."
-        :init-value nil
-        :lighter " org-ai"
-        :keymap org-ai-mode-map
-        :group 'org-ai
-        (add-hook 'org-ctrl-c-ctrl-c-hook #'org-ai-ctrl-c-ctrl-c nil t))
+  :init-value nil
+  :lighter " org-ai"
+  :keymap org-ai-mode-map
+  :group 'org-ai
+  (add-hook 'org-ctrl-c-ctrl-c-hook #'org-ai-ctrl-c-ctrl-c nil t))
 
 (org-ai--install-keyboard-quit-advice)
 
@@ -219,11 +230,11 @@ It's designed to \"do the right thing\":
 ;;;###autoload
 (define-minor-mode org-ai-global-mode
   "Non `org-mode' specific minor mode for the OpenAI API."
-        :init-value nil
-        :lighter ""
-        :global t
-        :keymap org-ai-global-mode-map
-        :group 'org-ai)
+  :init-value nil
+  :lighter ""
+  :global t
+  :keymap org-ai-global-mode-map
+  :group 'org-ai)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
