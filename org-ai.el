@@ -93,7 +93,7 @@
 (require 'org-ai-on-project)
 (require 'org-ai-talk)
 (require 'org-ai-sd)
-(require 'org-ai-local)
+(require 'org-ai-oobabooga)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -120,11 +120,11 @@ result."
                                             :context context))
       (image (org-ai-create-and-embed-image context))
       (sd-image (org-ai-create-and-embed-sd context))
-      (local-chat (org-ai-local-stream :messages (org-ai--collect-chat-messages
-                                                  content
-                                                  org-ai-default-chat-system-prompt
-                                                  sys-prompt-for-all-messages)
-                                       :context context))
+      (local-chat (org-ai-oobabooga-stream :messages (org-ai--collect-chat-messages
+                                                      content
+                                                      org-ai-default-chat-system-prompt
+                                                      sys-prompt-for-all-messages)
+                                           :context context))
       (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages
                                               content
                                               org-ai-default-chat-system-prompt
@@ -162,8 +162,8 @@ It's designed to \"do the right thing\":
              org-ai-talk--reading-process
              (process-live-p org-ai-talk--reading-process))
         (org-ai-talk-stop))
-       (org-ai-local--current-request
-        (org-ai-local-stop))
+       (org-ai-oobabooga--current-request
+        (org-ai-oobabooga-stop))
        (org-ai--current-request-buffer-for-stream
         (org-ai-interrupt-current-request))
        (org-ai--current-request-buffer
@@ -195,11 +195,11 @@ It's designed to \"do the right thing\":
 ;; create a minor-mode for org-mode
 (define-minor-mode org-ai-mode
   "Minor mode for `org-mode' integration with the OpenAI API."
-        :init-value nil
-        :lighter " org-ai"
-        :keymap org-ai-mode-map
-        :group 'org-ai
-        (add-hook 'org-ctrl-c-ctrl-c-hook #'org-ai-ctrl-c-ctrl-c nil t))
+  :init-value nil
+  :lighter " org-ai"
+  :keymap org-ai-mode-map
+  :group 'org-ai
+  (add-hook 'org-ctrl-c-ctrl-c-hook #'org-ai-ctrl-c-ctrl-c nil t))
 
 (org-ai--install-keyboard-quit-advice)
 
@@ -230,11 +230,11 @@ It's designed to \"do the right thing\":
 ;;;###autoload
 (define-minor-mode org-ai-global-mode
   "Non `org-mode' specific minor mode for the OpenAI API."
-        :init-value nil
-        :lighter ""
-        :global t
-        :keymap org-ai-global-mode-map
-        :group 'org-ai)
+  :init-value nil
+  :lighter ""
+  :global t
+  :keymap org-ai-global-mode-map
+  :group 'org-ai)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

@@ -196,6 +196,17 @@ M-x org-ai-sd-deepdanbooru guesses the previous image's prompt on
 org-mode by the DeepDanbooru interrogator and saves it in the kill
 ring.
 
+##### For local models
+For requesting completions from [a local model served with oobabooga/text-generation-webui](#TODO) you can add the `:local` key:
+
+```
+#+begin_ai :local
+...
+#+end_ai
+```
+
+This will send a request to `org-ai-oobabooga-websocket-url` and stream the response into the org buffer.
+
 ##### Other text models
 
 The older completion models can also be prompted by adding the `:completion` option to the ai block.
@@ -516,11 +527,60 @@ This will start a server on http://127.0.0.1:7861 by default. In order to use it
 
 If you use a server hosted elsewhere, change that URL accordingly.
 
+### Using local LLMs with oobabooga/text-generation-webui
+Since version 0.4 org-ai supports local models served with [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui). See the [installation instructions](https://github.com/oobabooga/text-generation-webui#installation) to set it up for your system.
+
+Here is a setup walk-through that was tested on Ubuntu 22.04. It assumes [miniconda or Anaconda](https://docs.conda.io/projects/conda/en/stable/user-guide/install/download.html#anaconda-or-miniconda) as well as [git-lfs](https://git-lfs.com/) to be installed.
+
+#### Step 1: Setup conda env and install pytorch
+
+```sh
+conda create -n org-ai python=3.10.9
+conda activate org-ai
+pip3 install torch torchvision torchaudio
+```
+
+#### Step 2: Install oobabooga/text-generation-webui
+
+```sh
+mkdir -p ~/.emacs.d/org-ai/
+cd ~/.emacs.d/org-ai/
+git clone https://github.com/oobabooga/text-generation-webui
+cd text-generation-webui
+pip install -r requirements.txt
+```
+
+#### Step 3: Install a language model
+
+oobabooga/text-generation-webui supports [a number of language models](https://github.com/oobabooga/text-generation-webui#downloading-models). Normally, you would install them from [huggingface](https://huggingface.co/models?pipeline_tag=text-generation&sort=downloads). For example, to install the `CodeLlama-7b-Instruct` model:
+
+```sh
+cd ~/.emacs.d/org-ai/text-generation-webui/models
+git clone git@hf.co:codellama/CodeLlama-7b-Instruct-hf
+```
+
+#### Step 4: Start the API server
+
+```sh
+cd ~/.emacs.d/org-ai/text-generation-webui
+conda activate org-ai
+python server.py --api --model CodeLlama-7b-Instruct-hf
+```
+
+Depending on your hardware and the model used you might need to adjust the server parameters, e.g. use `--load-in-8bit` to reduce memory usage or `--cpu` if you don't have a suitable GPU.
+
+You should now be able to use the local model with org-ai by adding the `:local` option to the `#+begin_ai` block:
+
+```
+#+begin_ai :local
+Hello CodeLlama!
+#+end_ai
+```
+
 ## FAQ
 
 ### Is this OpenAI specfic?
-
-Currently yes but once there are more high-quality APIs available I'm planning on supporting those as well.
+No, OpenAI is the easiest to setup (you only need an API key) but you can use local models as well. See how to use Stable Diffusion and local LLMs with oobabooga/text-generation-webui above.
 
 ### Are there similar projects around?
 
