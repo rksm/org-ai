@@ -45,6 +45,7 @@ _Note: In order to use the OpenAI API you'll need an [OpenAI account](https://pl
             - [Windows specific steps](#windows-specific-steps)
         - [espeak / greader](#espeak--greader)
     - [Setting up Stable Diffusion](#setting-up-stable-diffusion)
+    - [Using local LLMs with oobabooga/text-generation-webui](#using-local-llms-with-oobaboogatext-generation-webui)
 - [FAQ](#faq)
 
 ## Demos
@@ -197,7 +198,17 @@ org-mode by the DeepDanbooru interrogator and saves it in the kill
 ring.
 
 ##### For local models
-For requesting completions from [a local model served with oobabooga/text-generation-webui](#TODO) you can add the `:local` key:
+For requesting completions from a local model served with [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui), go through the setup steps described [below](#using-local-llms-with-oobaboogatext-generation-webui)
+
+Then start an API server:
+
+``` sh
+cd ~/.emacs.d/org-ai/text-generation-webui
+conda activate org-ai
+python server.py --api --model SOME-MODEL
+```
+
+When you add a `:local` key to an org-ai block and request completions with `C-c C-c`, the block will be sent to the local API server instead of the OpenAI API. For example:
 
 ```
 #+begin_ai :local
@@ -384,6 +395,7 @@ Then, if you use `use-package`:
 
 ```elisp
 (use-package org-ai
+  :ensure t
   :load-path (lambda () "path/to/org-ai"))
   ;; ...rest as above...
 
@@ -392,6 +404,7 @@ Then, if you use `use-package`:
 or just with `require`:
 
 ```elisp
+(package-install 'websocket)
 (add-to-list 'load-path "path/to/org-ai")
 (require 'org)
 (require 'org-ai)

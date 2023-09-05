@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.0] - 2023-09-05
+### Added
+- Add support for local LLMs via [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui). See [issue #78](https://github.com/rksm/org-ai/issues/78).
+
 ## [0.3.13] - 2023-08-20
 ### Changed
 - add macro `org-ai--org-element-with-disabled-cache`. `org-element-with-disabled-cache` is not available pre org-mode 9.6.6. (resolves https://github.com/rksm/org-ai/issues/77)
