@@ -110,7 +110,18 @@ MESSAGES is a vector of (:role role :content content) plists.
 (defcustom org-ai-oobabooga-create-prompt-function 'org-ai-oobabooga-create-prompt-default
   "Function to create the prompt that will be passed to the LLM.
 MESSAGES is a vector of (:role role :content content) plists.
-:role can be 'system, 'user or 'assistant."
+:role can be 'system, 'user or 'assistant.
+Example:
+  (setq org-ai-oobabooga-create-prompt-function
+        (lambda (messages)
+          (cl-loop for msg across messages
+                   for role = (plist-get msg :role)
+                   for content = (plist-get msg :content)
+                   collect (cond ((eql role 'system) (format \"SYSTEM %s\" content))
+                                 ((eql role 'user) (format \"USER %s\" content))
+                                 ((eql role 'assistant) (format \"ASSISTANT %s\" content)))
+                   into result
+                   finally return (string-join result \"\n\n\"))))"
   :type 'function
   :group 'org-ai-oobabooga)
 
