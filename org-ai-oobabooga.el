@@ -94,6 +94,26 @@ is used."
                               (push (cons k v) result)))
              finally return result)))
 
+(defun org-ai-oobabooga-create-prompt-default (messages)
+  "Create a prompt from MESSAGES.
+MESSAGES is a vector of (:role role :content content) plists.
+:role can be 'system, 'user or 'assistant."
+  (let ((system-prefix org-ai-oobabooga-system-prefix)
+        (user-prefix org-ai-oobabooga-user-prefix)
+        (assistant-prefix org-ai-oobabooga-assistant-prefix))
+    (org-ai--stringify-chat-messages messages
+                                     :default-system-prompt org-ai-oobabooga-default-system-prompt
+                                     :user-prefix user-prefix
+                                     :assistant-prefix assistant-prefix
+                                     :system-prefix system-prefix)))
+
+(defcustom org-ai-oobabooga-create-prompt-function 'org-ai-oobabooga-create-prompt-default
+  "Function to create the prompt that will be passed to the LLM.
+MESSAGES is a vector of (:role role :content content) plists.
+:role can be 'system, 'user or 'assistant."
+  :type 'function
+  :group 'org-ai-oobabooga)
+
 (cl-defun org-ai-oobabooga-stream (&optional &key
                                              messages context
                                              max-tokens temperature top-p)
@@ -104,21 +124,14 @@ MAX-TOKENS is the max-tokens value to use.
 TEMPERATURE is the temperature value to use.
 TOP-P is the top-p value to use."
   (let ((context (or context (org-ai-special-block)))
-        (buffer (current-buffer))
-        (system-prefix org-ai-oobabooga-system-prefix)
-        (user-prefix org-ai-oobabooga-user-prefix)
-        (assistant-prefix org-ai-oobabooga-assistant-prefix))
+        (buffer (current-buffer)))
     (let* ((info (org-ai-get-block-info context))
            (max-tokens (or max-tokens (alist-get :max-tokens info)))
            (temperature (or temperature (alist-get :temperature info)))
            (top-p (or top-p (alist-get :top-p info)))
            (callback (lambda (result) (org-ai-oobabooga--insert-chat-completion-response
                                        context buffer result)))
-           (prompt (org-ai--stringify-chat-messages messages
-                                                    :default-system-prompt org-ai-oobabooga-default-system-prompt
-                                                    :user-prefix user-prefix
-                                                    :assistant-prefix assistant-prefix
-                                                    :system-prefix system-prefix)))
+           (prompt (funcall org-ai-oobabooga-create-prompt-function messages)))
       (org-ai-oobabooga-stream-request :prompt prompt
                                        :callback callback
                                        :max-tokens max-tokens
