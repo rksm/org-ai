@@ -598,7 +598,7 @@ No, OpenAI is the easiest to setup (you only need an API key) but you can use lo
 
 ### Are there similar projects around?
 
-Yes, the gptel package provides similar functionalities: https://github.com/karthink/gptel
+The gptel package provides an alternative interface to the OpenAI ChatGPT API: https://github.com/karthink/gptel
 
 
 ## Sponsoring
