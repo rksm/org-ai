@@ -47,6 +47,7 @@ _Note: In order to use the OpenAI API you'll need an [OpenAI account](https://pl
     - [Setting up Stable Diffusion](#setting-up-stable-diffusion)
     - [Using local LLMs with oobabooga/text-generation-webui](#using-local-llms-with-oobaboogatext-generation-webui)
 - [FAQ](#faq)
+- [Sponsoring](#sponsoring)
 
 ## Demos
 
@@ -598,3 +599,8 @@ No, OpenAI is the easiest to setup (you only need an API key) but you can use lo
 ### Are there similar projects around?
 
 Yes, the gptel package provides similar functionalities: https://github.com/karthink/gptel
+
+
+## Sponsoring
+
+If you find this project useful please consider [sponsoring](https://github.com/sponsors/rksm). Thank you!
