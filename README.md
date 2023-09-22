@@ -138,7 +138,7 @@ Inside an `#+begin_ai...#+end_ai` you can modify and select the parts of the cha
 
 #### Syntax highlighting in ai blocks
 
-To apply syntax highlighted to your `#+begin_ai ...` blocks just add a language major-mode name after `_ai`. E.g. `#+begin_ai markdown`. For markdown in particular, to then also correctly highlight code in in backticks, you can set `(setq markdown-fontify-code-blocks-natively t)`. Thanks @tavisrudd for this trick!
+To apply syntax highlighted to your `#+begin_ai ...` blocks just add a language major-mode name after `_ai`. E.g. `#+begin_ai markdown`. For markdown in particular, to then also correctly highlight code in in backticks, you can set `(setq markdown-fontify-code-blocks-natively t)`. Make sure that you also have the [markdown-mode package](https://melpa.org/#/markdown-mode) installed. Thanks @tavisrudd for this trick!
 
 #### Block Options
 
