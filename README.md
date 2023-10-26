@@ -484,6 +484,8 @@ sudo python ./tccutil.py -p /Applications/Emacs.app -e --microphone
 
 When you now run `ffmpeg -f avfoundation -i :0 output.mp3` from within an Emacs shell, there should be no `abort trap: 6` error.
 
+(As an alternative to tccutil.py see the method mentioned in [this issue](https://github.com/rksm/org-ai/issues/86).)
+
 ###### 2. Tell whisper.el what microphone to use
 
 You can use the output of `ffmpeg -f avfoundation -list_devices true -i ""` to list the audio input devices and then tell whisper.el about it: `(setq whisper--ffmpeg-input-device ":0")`. `:0` is the microphone index, see the output of the command above to use another one.
