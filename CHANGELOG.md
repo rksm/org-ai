@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.4.1] - 2023-09-10
+### Changed
+- Introduced `org-ai-oobabooga-create-prompt-function` that can be used to customize the prompt creation for local LLMs. It defaults to `org-ai-oobabooga-create-prompt-default` which uses the values of the variables `org-ai-oobabooga-system-prefix`, `org-ai-oobabooga-user-prefix` and `org-ai-oobabooga-assistant-prefix` to assemble the prompt text. Example:
+```elisp
+(funcall org-ai-oobabooga-create-prompt-function
+         [(:role system :content "system")
+          (:role user :content "hello")
+          (:role assistant :content "world")])
+;; => "PROMPT: system\n\nYou: hello\n\nAssistant: world\n\n"
+```
+
+## [0.4.0] - 2023-09-05
+### Added
+- Add support for local LLMs via [oobabooga/text-generation-webui](https://github.com/oobabooga/text-generation-webui). See [issue #78](https://github.com/rksm/org-ai/issues/78).
+
 ## [0.3.13] - 2023-08-20
 ### Changed
 - add macro `org-ai--org-element-with-disabled-cache`. `org-element-with-disabled-cache` is not available pre org-mode 9.6.6. (resolves https://github.com/rksm/org-ai/issues/77)

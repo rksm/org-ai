@@ -55,21 +55,24 @@ key-value pairs."
          (header-start (org-element-property :post-affiliated context))
          (header-end (org-element-property :contents-begin context)))
     (if (or (not header-start) (not header-end))
-        (error "org-ai was not able to extract the beginning/end of the org-ai block.")
+        (error "Error: org-ai was not able to extract the beginning/end of the org-ai block")
       (save-match-data
         (let* ((string (string-trim (buffer-substring-no-properties header-start header-end)))
                (string (string-trim-left (replace-regexp-in-string "^#\\+begin_ai" "" string))))
           (org-babel-parse-header-arguments string))))))
 
 (defun org-ai--string-equal-ignore-case (string1 string2)
-  "Helper for backwards compat."
+  "Helper for backwards compat.
+STRING1 and STRING2 are strings. Return t if they are equal
+ignoring case."
   (eq 't (compare-strings string1 0 nil string2 0 nil t)))
 
 (defun org-ai-get-block-content (&optional context)
   "Extracts the text content of the #+begin_ai...#+end_ai block.
 `CONTEXT' is the context of the special block.
 
-Will expand noweb templates if an 'org-ai-noweb' property or 'noweb' header arg is \"yes\""
+Will expand noweb templates if an 'org-ai-noweb' property or
+'noweb' header arg is \"yes\""
 
   (let* ((context (or context (org-ai-special-block)))
          (content-start (org-element-property :contents-begin context))
@@ -93,6 +96,7 @@ pairs from `org-ai-get-block-info'."
    ((not (eql 'x (alist-get :completion info 'x))) 'completion)
    ((not (eql 'x (alist-get :image info 'x))) 'image)
    ((not (eql 'x (alist-get :sd-image info 'x))) 'sd-image)
+   ((not (eql 'x (alist-get :local info 'x))) 'local-chat)
    (t 'chat)))
 
 (defun org-ai--chat-role-regions ()
@@ -264,6 +268,51 @@ intercalated. The [SYS] prompt used is either
 ;; (comment
 ;;   (with-current-buffer "org-ai-mode-test.org"
 ;;    (org-ai--collect-chat-messages (org-ai-get-block-content))))
+
+(cl-defun org-ai--stringify-chat-messages (messages &optional &key
+                                                    default-system-prompt
+                                                    (system-prefix "[SYS]: ")
+                                                    (user-prefix "[ME]: ")
+                                                    (assistant-prefix "[AI]: "))
+  "Converts a chat message to a string.
+`MESSAGES' is a vector of (:role :content) pairs. :role can be
+'system, 'user or 'assistant. If `DEFAULT-SYSTEM-PROMPT' is
+non-nil, a [SYS] prompt is prepended if the first message is not
+a system message. `SYSTEM-PREFIX', `USER-PREFIX' and
+`ASSISTANT-PREFIX' are the prefixes for the respective roles
+inside the assembled prompt string."
+  (let ((messages (if (and default-system-prompt
+                           (not (eql (plist-get (aref messages 0) :role) 'system)))
+                      (cl-concatenate 'vector (vector (list :role 'system :content default-system-prompt)) messages)
+                    messages)))
+    (cl-loop for (_ role _ content) across messages
+             collect (cond ((eql role 'system) (concat system-prefix content))
+                           ((eql role 'user) (concat user-prefix content))
+                           ((eql role 'assistant) (concat assistant-prefix content)))
+             into result
+             finally return (string-join result "\n\n"))))
+
+(cl-assert
+ (equal
+  (org-ai--stringify-chat-messages '[(:role system :content "system")
+                                     (:role user :content "user")
+                                     (:role assistant :content "assistant")])
+  "[SYS]: system\n\n[ME]: user\n\n[AI]: assistant"))
+
+(cl-assert
+ (equal
+  (org-ai--stringify-chat-messages '[(:role user :content "user")
+                                     (:role assistant :content "assistant")]
+                                   :default-system-prompt "system")
+  "[SYS]: system\n\n[ME]: user\n\n[AI]: assistant"))
+
+(cl-assert
+ (equal
+  (org-ai--stringify-chat-messages '[(:role user :content "user")
+                                     (:role assistant :content "assistant")]
+                                   :user-prefix "You: "
+                                   :assistant-prefix "Assistant: ")
+  "You: user\n\nAssistant: assistant"))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 

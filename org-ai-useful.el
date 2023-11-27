@@ -473,7 +473,8 @@ Will open the diff buffer and return it."
 ;; Marking blocks
 
 (defun org-ai-mark-block-contents ()
-  "Set the currently marked region to the contents of this org-ai block. Place point at beginning of contents."
+  "Set the marked region to the contents of this org-ai block.
+Place point at beginning of contents."
   (interactive)
   (when-let* ((block-info (cadr (org-ai-special-block)))
               (contents-begin (plist-get block-info :contents-begin))
@@ -483,7 +484,7 @@ Will open the diff buffer and return it."
     (activate-mark)))
 
 (defun org-ai-mark-block-after-point ()
-  "Set the currently marked region to the contents of this org-ai block after point."
+  "Set the marked region to the contents of the org-ai block after point."
   (interactive)
   (when-let* ((block-info (cadr (org-ai-special-block)))
               (contents-end (plist-get block-info :contents-end)))

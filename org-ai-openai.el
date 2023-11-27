@@ -33,8 +33,9 @@
 (require 'org-ai-block)
 
 (defcustom org-ai-openai-api-token nil
-  "This is your OpenAI API token that you need to specify if you do
-not store the token in auth-sources. You can retrieve it at
+  "This is your OpenAI API token.
+You need to specify if you do not store the token in
+`auth-sources'. You can retrieve it at
 https://platform.openai.com/account/api-keys."
   :type 'string
   :group 'org-ai)
@@ -48,8 +49,8 @@ in the `auth-sources' file."
   :group 'org-ai)
 
 (defun org-ai--openai-get-token ()
-  "Try to get the openai token, either from
-`org-ai-openai-api-token' or from auth-source."
+  "Try to get the openai token.
+Either from `org-ai-openai-api-token' or from auth-source."
   (or org-ai-openai-api-token
       (when org-ai-use-auth-source
         (require 'auth-source)
@@ -334,7 +335,7 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
 					    :presence-penalty presence-penalty
                                             :stream t)))
 
-    (message "REQUEST %s" url-request-data)
+    ;; (message "REQUEST %s" url-request-data)
 
     (setq org-ai--current-request-callback callback)
 
