@@ -70,7 +70,9 @@ Either from `org-ai-openai-api-token' or from auth-source."
 (defcustom org-ai-chat-models '("gpt-3.5-turbo"
                                 "gpt-3.5-turbo-16k"
                                 "gpt-4"
-                                "gpt-4-32k")
+                                "gpt-4-32k"
+                                "gpt-4-vision-preview"
+                                "gpt-4-1106-preview")
   "Alist of available chat models. See https://platform.openai.com/docs/models."
   :type '(alist :key-type string :value-type string)
   :group 'org-ai)
