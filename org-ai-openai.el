@@ -278,7 +278,7 @@ the response into."
               ;; insert text
               (if-let* ((choices (or (alist-get 'choices response)
                                      (plist-get response 'choices)))
-                        (choice (aref choices 0))
+                        (choice (and (arrayp choices) (> (length choices) 0) (aref choices 0)))
                         (delta (plist-get choice 'delta)))
                   (cond
                    ((plist-get delta 'role)
