@@ -103,9 +103,53 @@ messages."
   :type 'string
   :group 'org-ai)
 
+(defcustom org-ai-service 'openai
+  "Service to use. Either openai or azure-openai."
+  :type '(choice (const :tag "OpenAI" openai)
+                 (const :tag "Azure-OpenAI" azure-openai))
+  :group 'org-ai)
+
 (defvar org-ai-openai-chat-endpoint "https://api.openai.com/v1/chat/completions")
 
 (defvar org-ai-openai-completion-endpoint "https://api.openai.com/v1/completions")
+
+;; Azure-Openai specific variables
+
+(defcustom org-ai-azure-openai-api-base "https://your-instance.openai.azure.com"
+  "Base API URL for Azure-OpenAI."
+  :type 'string
+  :group 'org-ai)
+
+;; Additional Azure-Openai specific variables
+(defcustom org-ai-azure-openai-deployment "azure-openai-deployment-name"
+  "Deployment name for Azure-OpenAI API."
+  :type 'string
+  :group 'org-ai)
+
+(defcustom org-ai-azure-openai-api-version "2023-07-01-preview"
+  "API version for Azure-OpenAI."
+  :type 'string
+  :group 'org-ai)
+
+(defun org-ai--get-endpoint (messages)
+  "Determine the correct endpoint based on the service and
+whether messages are provided."
+  (cond
+   ((eq org-ai-service 'azure-openai)
+    (format "%s/openai/deployments/%s%s/completions?api-version=%s"
+	    org-ai-azure-openai-api-base org-ai-azure-openai-deployment
+	    (if messages "/chat" "") org-ai-azure-openai-api-version))
+   (t
+    (if messages org-ai-openai-chat-endpoint org-ai-openai-completion-endpoint))))
+
+(defun org-ai--get-headers ()
+  "Determine the correct headers based on the service."
+  `(("Content-Type" . "application/json")
+    ,(cond
+      ((eq org-ai-service 'azure-openai)
+       `("api-key" . ,(org-ai--openai-get-token)))
+      (t
+       `("Authorization" . ,(encode-coding-string (string-join `("Bearer" ,(org-ai--openai-get-token)) " ") 'utf-8))))))
 
 (defvar org-ai--current-request-buffer-for-stream nil
   "Internal var that stores the current request buffer.
@@ -234,7 +278,7 @@ the response into."
               ;; insert text
               (if-let* ((choices (or (alist-get 'choices response)
                                      (plist-get response 'choices)))
-                        (choice (aref choices 0))
+                        (choice (and (arrayp choices) (> (length choices) 0) (aref choices 0)))
                         (delta (plist-get choice 'delta)))
                   (cond
                    ((plist-get delta 'role)
@@ -278,10 +322,9 @@ model to use. `MAX-TOKENS' is the maximum number of tokens to
 generate. `TEMPERATURE' is the temperature of the distribution.
 `TOP-P' is the top-p value. `FREQUENCY-PENALTY' is the frequency
 penalty. `PRESENCE-PENALTY' is the presence penalty."
-  (let* ((url-request-extra-headers `(("Authorization" . ,(encode-coding-string (string-join `("Bearer" ,(org-ai--openai-get-token)) " ") 'utf-8))
-                                      ("Content-Type" . "application/json")))
+  (let* ((url-request-extra-headers (org-ai--get-headers))
          (url-request-method "POST")
-         (endpoint (if messages org-ai-openai-chat-endpoint org-ai-openai-completion-endpoint))
+         (endpoint (org-ai--get-endpoint messages))
          (url-request-data (org-ai--payload :prompt prompt
 					    :messages messages
 					    :model model
@@ -321,10 +364,9 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
 `TOP-P' is the top-p value.
 `FREQUENCY-PENALTY' is the frequency penalty.
 `PRESENCE-PENALTY' is the presence penalty."
-  (let* ((url-request-extra-headers `(("Authorization" . ,(encode-coding-string (string-join `("Bearer" ,(org-ai--openai-get-token)) " ") 'utf-8))
-                                      ("Content-Type" . "application/json")))
+  (let* ((url-request-extra-headers (org-ai--get-headers))
          (url-request-method "POST")
-         (endpoint (if messages org-ai-openai-chat-endpoint org-ai-openai-completion-endpoint))
+         (endpoint (org-ai--get-endpoint messages))
          (url-request-data (org-ai--payload :messages messages
 					    :model model
 					    :max-tokens max-tokens
