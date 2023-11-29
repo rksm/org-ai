@@ -203,31 +203,43 @@ number of tokens to generate. `TEMPERATURE' is the temperature of
 the distribution. `TOP-P' is the top-p value. `FREQUENCY-PENALTY'
 is the frequency penalty. `PRESENCE-PENALTY' is the presence
 penalty. `CONTEXT' is the context of the special block."
-  (let ((context (or context (org-ai-special-block)))
-        (buffer (current-buffer)))
-    (let* ((info (org-ai-get-block-info context))
-           (model (or model (alist-get :model info) (if messages org-ai-default-chat-model org-ai-default-completion-model)))
-           (max-tokens (or max-tokens (alist-get :max-tokens info) org-ai-default-max-tokens))
-           (top-p (or top-p (alist-get :top-p info)))
-           (temperature (or temperature (alist-get :temperature info)))
-           (frequency-penalty (or frequency-penalty (alist-get :frequency-penalty info)))
-           (presence-penalty (or presence-penalty (alist-get :presence-penalty info)))
-           (callback (if messages
-                         (lambda (result) (org-ai--insert-chat-completion-response context buffer result))
-                       (lambda (result) (org-ai--insert-stream-completion-response context buffer result)))))
-      (setq org-ai--current-insert-position-marker nil)
-      (setq org-ai--chat-got-first-response nil)
-      (setq org-ai--debug-data nil)
-      (setq org-ai--debug-data-raw nil)
-      (org-ai-stream-request :prompt prompt
-                             :messages messages
-                             :model model
-                             :max-tokens max-tokens
-                             :temperature temperature
-                             :top-p top-p
-                             :frequency-penalty frequency-penalty
-                             :presence-penalty presence-penalty
-                             :callback callback))))
+  (let* ((context (or context (org-ai-special-block)))
+         (buffer (current-buffer))
+         (info (org-ai-get-block-info context))
+         (callback (if messages
+                       (lambda (result) (org-ai--insert-chat-completion-response context buffer result))
+                     (lambda (result) (org-ai--insert-stream-completion-response context buffer result)))))
+    (macrolet ((let-with-captured-arg-or-header-or-inherited-property
+                (definitions &rest body)
+                `(let ,(cl-loop for (sym . default-form) in definitions collect
+                                `(,sym (or ,sym
+                                           (alist-get ,(intern (format ":%s" (symbol-name sym))) info)
+                                           (when-let ((prop (org-entry-get-with-inheritance ,(symbol-name sym))))
+                                             (if (eq (quote ,sym) 'model)
+                                                 prop
+                                               (if (stringp prop) (string-to-number prop) prop)))
+                                           ,@default-form)))
+                   ,@body)))
+      (let-with-captured-arg-or-header-or-inherited-property
+       ((model (if messages org-ai-default-chat-model org-ai-default-completion-model))
+        (max-tokens org-ai-default-max-tokens)
+        (top-p)
+        (temperature)
+        (frequency-penalty)
+        (presence-penalty))
+       (setq org-ai--current-insert-position-marker nil)
+       (setq org-ai--chat-got-first-response nil)
+       (setq org-ai--debug-data nil)
+       (setq org-ai--debug-data-raw nil)
+       (org-ai-stream-request :prompt prompt
+                              :messages messages
+                              :model model
+                              :max-tokens max-tokens
+                              :temperature temperature
+                              :top-p top-p
+                              :frequency-penalty frequency-penalty
+                              :presence-penalty presence-penalty
+                              :callback callback)))))
 
 (defun org-ai--insert-stream-completion-response (context buffer &optional response)
   "Insert the response from the OpenAI API into the buffer.

@@ -113,7 +113,9 @@ result."
          (content (org-ai-get-block-content context))
          (req-type (org-ai--request-type info))
          (sys-prompt-for-all-messages (or (not (eql 'x (alist-get :sys-everywhere info 'x)))
-                                          org-ai-default-inject-sys-prompt-for-all-messages)))
+                                          (org-entry-get-with-inheritance "SYS-EVERYWHERE")
+                                          org-ai-default-inject-sys-prompt-for-all-messages))
+         (default-system-prompt (or (org-entry-get-with-inheritance "SYS") org-ai-default-chat-system-prompt)))
     (cl-case req-type
       (completion (org-ai-stream-completion :prompt content
                                             :context context))
@@ -121,12 +123,12 @@ result."
       (sd-image (org-ai-create-and-embed-sd context))
       (local-chat (org-ai-oobabooga-stream :messages (org-ai--collect-chat-messages
                                                       content
-                                                      org-ai-default-chat-system-prompt
+                                                      default-system-prompt
                                                       sys-prompt-for-all-messages)
                                            :context context))
       (t (org-ai-stream-completion :messages (org-ai--collect-chat-messages
                                               content
-                                              org-ai-default-chat-system-prompt
+                                              default-system-prompt
                                               sys-prompt-for-all-messages)
                                    :context context)))))
 
