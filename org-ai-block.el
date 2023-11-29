@@ -227,7 +227,7 @@ intercalated. The [SYS] prompt used is either
                                        (push (list :role 'system :content sys-prompt) result)
                                        (push (list :role 'user :content content) result))
                                   finally return (reverse result))
-                       (if starts-with-sys-prompt-p
+                       (if (or starts-with-sys-prompt-p (not sys-prompt))
                            messages
                          (cons (list :role 'system :content sys-prompt) messages)))))
 
