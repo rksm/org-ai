@@ -46,7 +46,7 @@
   :group 'org-ai)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-(defun org-ai--load-yas-snippets ()
+(defun org-ai-load-snippets ()
   "Load snippets in \"snippets/\" directory in this library to yasnippet collection"
   (let ((snippet-dir (expand-file-name "snippets/"
                                        (file-name-directory (locate-library "org-ai")))))
