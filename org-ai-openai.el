@@ -54,7 +54,7 @@ Either from `org-ai-openai-api-token' or from auth-source."
   (or org-ai-openai-api-token
       (when org-ai-use-auth-source
         (require 'auth-source)
-        (auth-source-pick-first-password :host "api.openai.com" :user "org-ai"))
+        (auth-source-pick-first-password :host "api.openai.com" :login "org-ai"))
       (error "Please set `org-ai-openai-api-token' to your OpenAI API token or setup auth-source (see org-ai readme)")))
 
 (defcustom org-ai-default-completion-model "text-davinci-003"
