@@ -133,6 +133,22 @@ messages."
   :type 'string
   :group 'org-ai)
 
+(defun org-ai--openai-get-token-auth-source ()
+  (require 'auth-source)
+  (let ((endpoint
+         (cond ((eq org-ai-service 'openai) "api.openai.com")
+               ((eq org-ai-service 'azure-openai) (strip-api-url org-ai-azure-openai-api-base)))))
+    (auth-source-pick-first-password :host endpoint :user "org-ai")))
+
+(defun strip-api-url (url)
+  "Strip the leading https:// and trailing / from an URL"
+  (let ((stripped-url (if (string-prefix-p "https://" url)
+                          (substring url 8)
+                        url)))
+    (if (string-suffix-p "/" stripped-url)
+        (substring stripped-url 0 -1)
+      stripped-url)))
+
 (defun org-ai--get-endpoint (messages)
   "Determine the correct endpoint based on the service and
 whether messages are provided."
