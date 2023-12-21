@@ -133,6 +133,7 @@ Either from `org-ai-openai-api-token' or from auth-source."
       (error "Please set `org-ai-openai-api-token' to your OpenAI API token or setup auth-source (see org-ai readme)")))
 
 (defun org-ai--openai-get-token-auth-source ()
+  "Retrieves the authentication token for the OpenAI service using auth-source."
   (require 'auth-source)
   (let ((endpoint
          (cond ((eq org-ai-service 'openai) "api.openai.com")
