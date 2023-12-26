@@ -210,7 +210,7 @@ It's designed to \"do the right thing\":
 
 (let ((map org-ai-global-prefix-map))
   (define-key map (kbd "p") 'org-ai-on-project)
-  (define-key map (kbd "P") 'org-ai-prompt)
+  (define-key map (kbd "P") 'org-ai-prompt-in-new-buffer)
   (define-key map (kbd "r") 'org-ai-on-region)
   (define-key map (kbd "c") 'org-ai-refactor-code)
   (define-key map (kbd "s") 'org-ai-summarize)

@@ -162,6 +162,49 @@ Will always return t if `org-ai-talk-confirm-speech-input' is nil."
                                              (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end "")
                                              (when callback (with-current-buffer output-buffer (funcall callback))))))))))
 
+(defcustom org-ai-prompt-in-new-buffer-reuses-single-buffer t
+  "When set to t, `org-ai-prompt-in-new-buffer' creates a single
+buffer named `org-ai-prompt-in-new-buffer-name' and appends new
+prompts to it. If set to nil, a new buffer is created for each
+prompt."
+  :type 'boolean
+  :group 'org-ai)
+
+(defcustom org-ai-prompt-in-new-buffer-name "*org-ai-prompt*"
+  "The name of the buffer to use for `org-ai-prompt-in-new-buffer'."
+  :type 'string
+  :group 'org-ai)
+
+(defcustom org-ai-prompt-in-new-buffer-use-same-window nil
+  "Should a different window be used for
+`org-ai-prompt-in-new-buffer'? If nil, uses the current window."
+  :type 'string
+  :group 'org-ai)
+
+(defun org-ai-prompt-in-new-buffer (prompt)
+  "Just like `org-ai-prompt' but always uses a new buffer and does
+not insert the prompt in the current buffer."
+  (interactive
+   (list (unless org-ai-talk-spoken-input (read-string "What do you want to know? " nil 'org-ai-prompt-history))))
+
+  (org-ai-with-input-or-spoken-text "What do you want to know?" prompt
+    (let* ((buf-name (if org-ai-prompt-in-new-buffer-reuses-single-buffer
+                         org-ai-prompt-in-new-buffer-name
+                       (generate-new-buffer-name org-ai-prompt-in-new-buffer-name)))
+           (buf (get-buffer buf-name))
+           (exists (buffer-live-p buf))
+           (buf (or buf (get-buffer-create buf-name)))
+           (pos
+            (with-current-buffer buf
+              (if exists
+                  (progn (goto-char (point-max))
+                         (insert "\n\n")
+                         (point))
+                (progn (org-mode)
+                       (point-min))))))
+      (org-ai--output-to-org-buffer
+       pos pos (lambda (_) prompt) buf))))
+
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; org-ai-on-region
 
@@ -213,13 +256,12 @@ argument and returns a prompt.
 
 (cl-defun org-ai--output-to-org-buffer (start end text-prompt-fn output-buffer &optional &key show-output-buffer)
   "Get the currently selected text, create a prompt, insert the response.
-`OUTPUT-BUFFER' is the buffer to insert the response in.
-`TEXT-PROMPT-FN' is a function that takes the selected text as
-argument and returns a prompt.
 `START' is the buffer position of the region.
 `END' is the buffer position of the region.
+`TEXT-PROMPT-FN' is a function that takes the selected text as
+argument and returns a prompt.
 `OUTPUT-BUFFER' is the name or the buffer to insert the response in.
-`CALLBACK' is a function to call after the response is inserted."
+`show-output-buffer' sets whether to switch to the output buffer."
   (let* ((text (buffer-substring-no-properties start end))
          (link (org-store-link '(4)))
          (full-prompt (funcall text-prompt-fn text))
@@ -241,7 +283,7 @@ argument and returns a prompt.
       (insert "** ")
       (if link
           (insert link)
-        (insert "*org-ai-on-region*"))
+        (insert "*org-ai*"))
       (insert "\n")
       (org-ai--insert-created-timestamp)
       (insert "\n")
