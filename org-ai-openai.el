@@ -105,6 +105,10 @@ messages."
   :type 'string
   :group 'org-ai)
 
+(make-obsolete-variable 'org-ai-default-inject-sys-prompt-for-all-messages
+                        "With newer ChatGPT versions this is no longer necessary."
+                        "2023-12-26")
+
 (defcustom org-ai-service 'openai
   "Service to use. Either openai or azure-openai."
   :type '(choice (const :tag "OpenAI" openai)
