@@ -142,7 +142,8 @@ Either from `org-ai-openai-api-token' or from auth-source."
   (let ((endpoint
          (cond ((eq org-ai-service 'openai) "api.openai.com")
                ((eq org-ai-service 'azure-openai) (strip-api-url org-ai-azure-openai-api-base)))))
-    (auth-source-pick-first-password :host endpoint :user "org-ai")))
+    (or (auth-source-pick-first-password :host endpoint :user "org-ai")
+        (auth-source-pick-first-password :host endpoint :login "org-ai"))))
 
 (defun strip-api-url (url)
   "Strip the leading https:// and trailing / from an URL"
