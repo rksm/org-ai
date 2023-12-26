@@ -4,7 +4,7 @@
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Version: 0.4.1
+;; Version: 0.4.2
 ;; Package-Requires: ((emacs "27.1") (websocket "1.15"))
 
 ;; This file is NOT part of GNU Emacs.
@@ -212,7 +212,7 @@ It's designed to \"do the right thing\":
 
 (let ((map org-ai-global-prefix-map))
   (define-key map (kbd "p") 'org-ai-on-project)
-  (define-key map (kbd "P") 'org-ai-prompt)
+  (define-key map (kbd "P") 'org-ai-prompt-in-new-buffer)
   (define-key map (kbd "r") 'org-ai-on-region)
   (define-key map (kbd "c") 'org-ai-refactor-code)
   (define-key map (kbd "s") 'org-ai-summarize)

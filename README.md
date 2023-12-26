@@ -3,7 +3,7 @@
 [![org-ai video](doc/org-ai-youtube-thumb-github.png)](https://www.youtube.com/watch?v=fvBDxiFPG6I)
 
 Minor mode for Emacs org-mode that provides access to generative AI models. Currently supported are
-- OpenAI API (ChatGPT, DALL-E, other text models)
+- OpenAI API (ChatGPT, DALL-E, other text models), optionally run against Azure API instead of OpenAI
 - Stable Diffusion through [stable-diffusion-webui](https://github.com/AUTOMATIC1111/stable-diffusion-webui)
 
 Inside an org-mode buffer you can
@@ -38,6 +38,7 @@ _Note: In order to use the OpenAI API you'll need an [OpenAI account](https://pl
     - [Straight.el](#straightel)
     - [Manual](#manual)
     - [OpenAI API key](#openai-api-key)
+        - [Using Azure API instead of OpenAI](#using-azure-api-instead-of-openai)
     - [Setting up speech input / output](#setting-up-speech-input--output)
         - [Whisper](#whisper)
             - [macOS specific steps](#macos-specific-steps)
@@ -466,6 +467,19 @@ machine api.openai.com login org-ai password <your-api-key>
 ```
 
 in your `~/authinfo.gpg` file. If this is present, org-ai will use this mechanism to retrieve the token when a request is made. If you do not want `org-ai` to try to retrieve the key from `auth-source`, you can set `org-ai-use-auth-source` to `nil` before loading `org-ai`.
+
+#### Using Azure API instead of OpenAI
+
+You can switch to Azure by customizing these variables, either interactively with `M-x customize-variable` or by adding them to your config:
+
+``` elisp
+(setq org-ai-service 'azure-openai
+      org-ai-azure-openai-api-base "https://your-instance.openai.azure.com"
+      org-ai-azure-openai-deployment "azure-openai-deployment-name"
+      org-ai-azure-openai-api-version "2023-07-01-preview")
+```
+
+To store the API credentials, follow the authinfo instructions above but use `org-ai-azure-openai-api-base` as the machine name.
 
 ### Setting up speech input / output
 

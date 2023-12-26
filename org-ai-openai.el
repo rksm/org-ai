@@ -48,15 +48,6 @@ in the `auth-sources' file."
   :type 'boolean
   :group 'org-ai)
 
-(defun org-ai--openai-get-token ()
-  "Try to get the openai token.
-Either from `org-ai-openai-api-token' or from auth-source."
-  (or org-ai-openai-api-token
-      (when org-ai-use-auth-source
-        (require 'auth-source)
-        (auth-source-pick-first-password :host "api.openai.com" :user "org-ai"))
-      (error "Please set `org-ai-openai-api-token' to your OpenAI API token or setup auth-source (see org-ai readme)")))
-
 (defcustom org-ai-default-completion-model "text-davinci-003"
   "The default model to use for completion requests. See https://platform.openai.com/docs/models for other options."
   :type 'string
@@ -105,6 +96,10 @@ messages."
   :type 'string
   :group 'org-ai)
 
+(make-obsolete-variable 'org-ai-default-inject-sys-prompt-for-all-messages
+                        "With newer ChatGPT versions this is no longer necessary."
+                        "2023-12-26")
+
 (defcustom org-ai-service 'openai
   "Service to use. Either openai or azure-openai."
   :type '(choice (const :tag "OpenAI" openai)
@@ -132,6 +127,32 @@ messages."
   "API version for Azure-OpenAI."
   :type 'string
   :group 'org-ai)
+
+(defun org-ai--openai-get-token ()
+  "Try to get the openai token.
+Either from `org-ai-openai-api-token' or from auth-source."
+  (or org-ai-openai-api-token
+      (when org-ai-use-auth-source
+       (org-ai--openai-get-token-auth-source))
+      (error "Please set `org-ai-openai-api-token' to your OpenAI API token or setup auth-source (see org-ai readme)")))
+
+(defun org-ai--openai-get-token-auth-source ()
+  "Retrieves the authentication token for the OpenAI service using auth-source."
+  (require 'auth-source)
+  (let ((endpoint
+         (cond ((eq org-ai-service 'openai) "api.openai.com")
+               ((eq org-ai-service 'azure-openai) (strip-api-url org-ai-azure-openai-api-base)))))
+    (or (auth-source-pick-first-password :host endpoint :user "org-ai")
+        (auth-source-pick-first-password :host endpoint :login "org-ai"))))
+
+(defun strip-api-url (url)
+  "Strip the leading https:// and trailing / from an URL"
+  (let ((stripped-url (if (string-prefix-p "https://" url)
+                          (substring url 8)
+                        url)))
+    (if (string-suffix-p "/" stripped-url)
+        (substring stripped-url 0 -1)
+      stripped-url)))
 
 (defun org-ai--get-endpoint (messages)
   "Determine the correct endpoint based on the service and

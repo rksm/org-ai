@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.2] - 2023-12-26
+
+### Added
+- Added `org-ai-prompt-in-new-buffer` command to query for a prompt and then run that in a new buffer.
+
+### Changed
+- Mark `org-ai-default-inject-sys-prompt-for-all-messages` as deprecated. No need for this any longer.
+- Fix inserting system prompt, thx @doctorguile!
+- Added notes about how to use Azure and Azure specific auth, thx @tillydray
+
 ## [0.4.1] - 2023-09-10
 ### Changed
 - Introduced `org-ai-oobabooga-create-prompt-function` that can be used to customize the prompt creation for local LLMs. It defaults to `org-ai-oobabooga-create-prompt-default` which uses the values of the variables `org-ai-oobabooga-system-prefix`, `org-ai-oobabooga-user-prefix` and `org-ai-oobabooga-assistant-prefix` to assemble the prompt text. Example:
