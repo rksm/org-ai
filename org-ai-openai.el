@@ -209,17 +209,17 @@ penalty. `CONTEXT' is the context of the special block."
          (callback (if messages
                        (lambda (result) (org-ai--insert-chat-completion-response context buffer result))
                      (lambda (result) (org-ai--insert-stream-completion-response context buffer result)))))
-    (macrolet ((let-with-captured-arg-or-header-or-inherited-property
-                (definitions &rest body)
-                `(let ,(cl-loop for (sym . default-form) in definitions collect
-                                `(,sym (or ,sym
-                                           (alist-get ,(intern (format ":%s" (symbol-name sym))) info)
-                                           (when-let ((prop (org-entry-get-with-inheritance ,(symbol-name sym))))
-                                             (if (eq (quote ,sym) 'model)
-                                                 prop
-                                               (if (stringp prop) (string-to-number prop) prop)))
-                                           ,@default-form)))
-                   ,@body)))
+    (cl-macrolet ((let-with-captured-arg-or-header-or-inherited-property
+                    (definitions &rest body)
+                    `(let ,(cl-loop for (sym . default-form) in definitions collect
+                                    `(,sym (or ,sym
+                                               (alist-get ,(intern (format ":%s" (symbol-name sym))) info)
+                                               (when-let ((prop (org-entry-get-with-inheritance ,(symbol-name sym))))
+                                                 (if (eq (quote ,sym) 'model)
+                                                     prop
+                                                   (if (stringp prop) (string-to-number prop) prop)))
+                                               ,@default-form)))
+                       ,@body)))
       (let-with-captured-arg-or-header-or-inherited-property
        ((model (if messages org-ai-default-chat-model org-ai-default-completion-model))
         (max-tokens org-ai-default-max-tokens)
