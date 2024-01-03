@@ -115,7 +115,8 @@ result."
          (sys-prompt-for-all-messages (or (not (eql 'x (alist-get :sys-everywhere info 'x)))
                                           (org-entry-get-with-inheritance "SYS-EVERYWHERE")
                                           org-ai-default-inject-sys-prompt-for-all-messages))
-         (default-system-prompt (or (org-entry-get-with-inheritance "SYS") org-ai-default-chat-system-prompt)))
+         (default-system-prompt (or (org-entry-get-with-inheritance "SYS")
+                                    org-ai-default-chat-system-prompt)))
     (cl-case req-type
       (completion (org-ai-stream-completion :prompt content
                                             :context context))
@@ -169,7 +170,9 @@ It's designed to \"do the right thing\":
        (org-ai--current-request-buffer-for-stream
         (org-ai-interrupt-current-request))
        (org-ai--current-request-buffer
-        (org-ai-interrupt-current-request)))
+        (org-ai-interrupt-current-request))
+       (org-ai--current-request-buffer-for-image
+        (org-ai-image-interrupt-current-request)))
     (error nil)))
 
 (defun org-ai--install-keyboard-quit-advice ()

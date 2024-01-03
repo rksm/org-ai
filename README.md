@@ -67,13 +67,36 @@ You can continue to type and press `C-c C-c` to create a conversation. `C-g` wil
 
 ### DALL-E in org-mode
 
+Use the `:image` keyword to generate an image. This uses DALL·E-3 by default.
+
 ```org
-#+begin_ai :image :size 256x256
+#+begin_ai :image :size 1024x1024
 Hyper realistic sci-fi rendering of super complicated technical machine.
 #+end_ai
 ```
 
 ![dall-e in org-mode](doc/org-ai-demo-2.gif)
+
+You can use the following keywords to control the image generation:
+- `:size <width>x<height>` - the size of the image to generate (default: 1024x1024)
+- `:model <model>` - the model to use (default: `"dall-e-3"`)
+- `:quality <quality>` - the quality of the image (choices: `hd`, `standard`)
+- `:style <style>` - the style to use (choices: `vivid`, `natural`)
+- `:n <count> - the number of images to generate (default: 1)
+
+(For more information about those settings see [this OpenAI blog post](https://cookbook.openai.com/articles/what_is_new_with_dalle_3).
+
+You can customize the defaults for those variables with `customize-variable` or by setting them in your config:
+
+```elisp
+(setq org-ai-image-model "dall-e-3")
+(setq org-ai-image-default-size "1792x1024")
+(setq org-ai-image-default-count 2)
+(setq org-ai-image-default-style 'vivid)
+(setq org-ai-image-default-quality 'hd)
+(setq org-ai-image-directory (expand-file-name "org-ai-images/" org-directory))
+```
+
 
 ### Image variations
 

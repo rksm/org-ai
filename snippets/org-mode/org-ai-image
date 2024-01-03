@@ -3,6 +3,6 @@
 #key : aii
 #contributor : Robert Krahn
 # --
-#+begin_ai :image :size ${1:$$(yas/choose-value '("256x256" "512x512" "1024x1024"))}
+#+begin_ai :image :size ${1:$$(yas/choose-value (if (string-equal org-ai-image-model "dall-e-3") '("1024x1024" "1792x1024" "1024x1792") '("256x256" "512x512" "1024x1024")))} :quality ${2:$$(yas/choose-value '("standard" "hd"))} :style ${3:$$(yas/choose-value '("natural" "vivid"))}
 $0
 #+end_ai
