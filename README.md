@@ -146,7 +146,7 @@ To apply syntax highlighted to your `#+begin_ai ...` blocks just add a language 
 The `#+begin_ai...#+end_ai` block can take the following options.
 
 ##### For ChatGPT
-By default, the content of ai blocks are interpreted as messages for ChatGPT. Text following `[ME]:` is associated with the user, text following `[AI]:` is associated as the model's response. Optionally you can start the block with a `[SYS]: <behahvior>` input to prime the model (see `org-ai-default-chat-system-prompt` below).
+By default, the content of ai blocks are interpreted as messages for ChatGPT. Text following `[ME]:` is associated with the user, text following `[AI]:` is associated as the model's response. Optionally you can start the block with a `[SYS]: <behavior>` input to prime the model (see `org-ai-default-chat-system-prompt` below).
 
 - `:max-tokens number` - number of maximum tokens to generate (default: nil, use OpenAI's default)
 - `:temperature number` - temperature of the model (default: 1)
@@ -154,6 +154,41 @@ By default, the content of ai blocks are interpreted as messages for ChatGPT. Te
 - `:frequency-penalty number` - frequency penalty of the model (default: 0)
 - `:presence-penalty` - presence penalty of the model (default: 0)
 - `:sys-everywhere` - repeat the system prompt for every user message (default: nil)
+
+If you have a lot of different threads of conversation regarding the same topic and settings (system prompt, temperature, etc) and you don't want to repeat all the options, you can set org file scope properties or create a org heading with property drawer, such that all `#+begin_ai...#+end_ai` blocks under that heading will inherit the settings.
+
+Examples:
+```org
+* Emacs (multiple conversations re emacs continue in this subtree)
+:PROPERTIES:
+:SYS: You are a emacs expert. You can help me by answering my questions. You can also ask me questions to clarify my intention.
+:temperature: 0.5
+:model: gpt-3.5-turbo
+:END:
+
+** Web programming via elisp
+#+begin_ai
+How to call a REST API and parse its JSON response?
+#+end_ai
+
+** Other emacs tasks
+#+begin_ai...#+end_ai
+
+* Python (multiple conversations re python continue in this subtree)
+:PROPERTIES:
+:SYS: You are a python programmer. Respond to the task with detailed step by step instructions and code.
+:temperature: 0.1
+:model: gpt-4
+:END:
+
+** Learning QUIC
+#+begin_ai
+How to setup a webserver with http3 support?
+#+end_ai
+
+** Other python tasks
+#+begin_ai...#+end_ai
+```
 
 The following custom variables can be used to configure the chat:
 
