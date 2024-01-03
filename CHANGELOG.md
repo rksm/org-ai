@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.3] - 2024-01-03
+### Added
+- org-ai block attributes can now be set with org drawer propert (see https://github.com/rksm/org-ai/pull/99 https://github.com/rksm/org-ai#for-chatgpt) Thank you @doctorguile!
+- Support for DALL·E-3! Should now work out of the box. org-ai image blocks now also support attributes like `:model`, `:quality`, and `style`. See the [README](https://github.com/rksm/org-ai#for-dall-e) for details.
+
+### Changed
+- Fix for selecting text in `org-ai-prompt-in-new-buffer`
+
+
 ## [0.4.2] - 2023-12-26
 
 ### Added
