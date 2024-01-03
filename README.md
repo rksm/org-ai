@@ -322,13 +322,16 @@ You can also use an existing image as input to generate more similar looking ima
 
 #### org-ai-on-project
 
-This is an experimental feature. Running this command will open a separate buffer that allows you to select choose multiple files (and optionally select a sub-region inside a file) and then run a prompt on it.
+Using the org-ai-on-project buffer allows you to run commands on files in a project, alternatively also just on selected text in those files. You can e.g. select the readme of a project and ask "what is it all about?" or have code explained to you. You can also ask for code changes, which will generate a diff. If you know somehone who thinks only VS Code with Copilot enabled can do that, point them here.
+
+Running the `org-ai-on-project` command will open a separate buffer that allows you to select choose multiple files (and optionally select a sub-region inside a file) and then run a prompt on it.
 
 ![org-ai-on-project](doc/org-ai-on-project-buffer.png)
 
 If you deactivate "modify code", the effect is similar to running `org-ai-on-region` just that the file contents all appear in the prompt.
 
-With "modify code" activated, you can ask the AI to modify or refactor the code. By default ("Request diffs") deactivated, we will prompt to generate the new code for all selected files/regions and you can then see a diff per file and decide to apply it or not. With "Request diffs" active, the AI will be asked to directly create a unified diff that can then be applied. This is experimental and might not work. GPT can't count...
+With "modify code" activated, you can ask the AI to modify or refactor the code. By default ("Request diffs") deactivated, we will prompt to generate the new code for all selected files/regions and you can then see a diff per file and decide to apply it or not. With "Request diffs" active, the AI will be asked to directly create a unified diff that can then be applied.
+
 
 ### Noweb Support
 
