@@ -202,8 +202,10 @@ not insert the prompt in the current buffer."
                          (point))
                 (progn (org-mode)
                        (point-min))))))
+      ;; FIXME, just reusing `org-ai--output-to-org-buffer' b/c it sets up an
+      ;; org buffer, but we actually don't need the text transformation stuff...
       (org-ai--output-to-org-buffer
-       pos pos (lambda (_) prompt) buf))))
+       (point-min) (point-max) (lambda (_) prompt) buf))))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; org-ai-on-region
