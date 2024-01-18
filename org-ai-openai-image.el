@@ -231,7 +231,9 @@ object."
                                        (with-current-buffer buffer
                                          (save-excursion
                                            (let ((name (plist-get (cadr (org-ai-special-block)) :name))
-                                                 (contents-end (plist-get (cadr (org-ai-special-block)) :contents-end)))
+                                                 (contents-end (if (fboundp 'org-element-contents-end)
+                                                                   (org-element-contents-end (org-ai-special-block))
+                                                                 (plist-get (cadr (org-ai-special-block)) :contents-end))))
                                              (goto-char contents-end)
                                              (forward-line)
                                              (when name
