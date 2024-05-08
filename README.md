@@ -39,7 +39,10 @@ _Note: In order to use the OpenAI API you'll need an [OpenAI account](https://pl
     - [Straight.el](#straightel)
     - [Manual](#manual)
     - [OpenAI API key](#openai-api-key)
-        - [Using Azure API instead of OpenAI](#using-azure-api-instead-of-openai)
+        - [Using other services than OpenAI](#using-other-services-than-openai)
+            - [Azure](#azure)
+            - [perplexity.ai](#perplexityai)
+            - [Anthropic / Claude](#anthropic--claude)
     - [Setting up speech input / output](#setting-up-speech-input--output)
         - [Whisper](#whisper)
             - [macOS specific steps](#macos-specific-steps)
@@ -540,6 +543,19 @@ or per block:
 For the authentication have an entry like `machine api.perplexity.ai login org-ai password pplx-***` in your `authinfo.gpg` or set `org-ai-openai-api-token`.
 
 __Note:__ Currently the perplexity.ai does not give access to references/links via the API so Emacs will not be able to display references. They have a beta program for that running and I sure hope that this will be available generally soon.
+
+##### Anthropic / Claude
+
+Similar to the above. E.g. 
+
+```org
+#+begin_ai :service anthropic :model claude-3-opus-20240229
+[ME]: Tell me fun facts about Emacs.
+#+end_ai
+```
+
+Anthropic models are [here](https://docs.anthropic.com/claude/docs/models-overview).
+There is currently only one API version that is set via `org-ai-anthropic-api-version`. If other version come out you can find them [here](https://docs.anthropic.com/claude/reference/versions).
 
 ### Setting up speech input / output
 
