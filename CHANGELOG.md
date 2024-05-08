@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.4.4] - 2024-05-08
+### Added
+- org-ai blocks now accept a service parameter to switch between different endpoints and service-specific behavior:
+
+```org
+#+begin_ai :service anthropic
+...
+#+end_ai
+```
+
+The same can be achieved globally by setting `org-ai-service`. Possible values are listed [here](https://github.com/rksm/org-ai/blob/master/org-ai-openai.el#L112).
+
+- support for the Anthropic Claude API. See [the readme](https://github.com/rksm/org-ai#anthropic--claude)
+
+- support for the perplexity.ai API. See [the readme](https://github.com/rksm/org-ai#perplexityai)
+
 ## [0.4.3] - 2024-01-03
 ### Added
 - org-ai block attributes can now be set with org drawer propert (see https://github.com/rksm/org-ai/pull/99 https://github.com/rksm/org-ai#for-chatgpt) Thank you @doctorguile!
