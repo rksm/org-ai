@@ -25,6 +25,7 @@ _Note: In order to use the OpenAI API you'll need an [OpenAI account](https://pl
 - [Features and Usage](#features-and-usage)
     - [`#+begin_ai...#+end_ai` special blocks](#begin_aiend_ai-special-blocks)
         - [Syntax highlighting in ai blocks](#syntax-highlighting-in-ai-blocks)
+        - [Jump to the end of the block after completion](#jump-to-the-end-of-the-block-after-completion)
         - [Block Options](#block-options)
             - [For ChatGPT](#for-chatgpt)
             - [For DALL-E](#for-dall-e)
@@ -163,6 +164,14 @@ Inside an `#+begin_ai...#+end_ai` you can modify and select the parts of the cha
 #### Syntax highlighting in ai blocks
 
 To apply syntax highlighted to your `#+begin_ai ...` blocks just add a language major-mode name after `_ai`. E.g. `#+begin_ai markdown`. For markdown in particular, to then also correctly highlight code in in backticks, you can set `(setq markdown-fontify-code-blocks-natively t)`. Make sure that you also have the [markdown-mode package](https://melpa.org/#/markdown-mode) installed. Thanks @tavisrudd for this trick!
+
+#### Jump to the end of the block after completion
+
+This behavior is enabled by default to so that the interaction is more similar to a chat. It can be annoying when long output is present and the buffer scrolls while you are reading. So you can disable this with:
+
+```elisp
+(setq org-ai-jump-to-end-of-block nil)
+```
 
 #### Block Options
 

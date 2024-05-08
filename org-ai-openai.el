@@ -32,6 +32,11 @@
 
 (require 'org-ai-block)
 
+(defcustom org-ai-jump-to-end-of-block t
+  "If non-nil, jump to the end of the block after inserting the completion."
+  :type 'boolean
+  :group 'org-ai)
+
 (defcustom org-ai-openai-api-token nil
   "This is your OpenAI API token.
 You need to specify if you do not store the token in
@@ -359,16 +364,21 @@ the response into."
               (setq org-ai--current-insert-position-marker (point-marker)))))))
 
     ;; insert new prompt and change position
-    (when finish-reason
-      (with-current-buffer buffer
-        (when org-ai--current-insert-position-marker
-          (goto-char org-ai--current-insert-position-marker))
+    (with-current-buffer buffer
+      (when finish-reason
+        (save-excursion
+          (when org-ai--current-insert-position-marker
+            (goto-char org-ai--current-insert-position-marker))
 
-        ;; (message "inserting user prompt: %" (string= org-ai--current-chat-role "user"))
-        (let ((text "\n\n[ME]: "))
-          (insert text)
-          (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end text))
-        (org-element-cache-reset)))))
+          ;; (message "inserting user prompt: %" (string= org-ai--current-chat-role "user"))
+          (let ((text "\n\n[ME]: "))
+            (insert text)
+            (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end text)
+            (setq org-ai--current-insert-position-marker (point-marker))))
+
+        (org-element-cache-reset)
+
+        (when org-ai-jump-to-end-of-block (goto-char org-ai--current-insert-position-marker))))))
 
 (cl-defun org-ai-stream-request (&optional &key prompt messages model max-tokens temperature top-p frequency-penalty presence-penalty service callback)
   "Send a request to the OpenAI API.
