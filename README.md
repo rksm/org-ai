@@ -723,7 +723,7 @@ Hello CodeLlama!
 ## FAQ
 
 ### Is this OpenAI specfic?
-No, OpenAI is the easiest to setup (you only need an API key) but you can use local models as well. See how to use Stable Diffusion and local LLMs with oobabooga/text-generation-webui above.
+No, OpenAI is the easiest to setup (you only need an API key) but you can use local models as well. See how to use Stable Diffusion and local LLMs with oobabooga/text-generation-webui above. Anthropic Claude and perplexity.ai are also supported. Please open an issue or PR for other services you'd like to see supported. I can be slow to respond but will add support if there is enough interest.
 
 ### Are there similar projects around?
 
