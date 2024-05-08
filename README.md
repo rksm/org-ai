@@ -557,6 +557,8 @@ Similar to the above. E.g.
 Anthropic models are [here](https://docs.anthropic.com/claude/docs/models-overview).
 There is currently only one API version that is set via `org-ai-anthropic-api-version`. If other version come out you can find them [here](https://docs.anthropic.com/claude/reference/versions).
 
+For the API token use `machine api.anthropic.com login org-ai password sk-ant-***` in your `authinfo.gpg`.
+
 ### Setting up speech input / output
 
 #### Whisper
