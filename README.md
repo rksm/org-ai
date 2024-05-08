@@ -494,11 +494,13 @@ machine api.openai.com login org-ai password <your-api-key>
 
 in your `~/authinfo.gpg` file. If this is present, org-ai will use this mechanism to retrieve the token when a request is made. If you do not want `org-ai` to try to retrieve the key from `auth-source`, you can set `org-ai-use-auth-source` to `nil` before loading `org-ai`.
 
-#### Using Azure API instead of OpenAI
+#### Using other services than OpenAI
+
+##### Azure
 
 You can switch to Azure by customizing these variables, either interactively with `M-x customize-variable` or by adding them to your config:
 
-``` elisp
+```elisp
 (setq org-ai-service 'azure-openai
       org-ai-azure-openai-api-base "https://your-instance.openai.azure.com"
       org-ai-azure-openai-deployment "azure-openai-deployment-name"
@@ -506,6 +508,29 @@ You can switch to Azure by customizing these variables, either interactively wit
 ```
 
 To store the API credentials, follow the authinfo instructions above but use `org-ai-azure-openai-api-base` as the machine name.
+
+##### perplexity.ai
+
+For a list of available models see the [perplexity.ai documentation](https://docs.perplexity.ai/docs/model-cards).
+
+Either switch the default service in your config:
+
+```elisp
+(setq org-ai-service 'perplexity.ai)
+(setq org-ai-default-chat-model "llama-3-sonar-large-32k-online")
+```
+
+or per block:
+
+```org
+#+begin_ai :service perplexity.ai :model llama-3-sonar-large-32k-online
+[ME]: Tell me fun facts about Emacs.
+#+end_ai
+```
+
+For the authentication have an entry like `machine api.perplexity.ai login org-ai password pplx-***` in your `authinfo.gpg` or set `org-ai-openai-api-token`.
+
+__Note:__ Currently the perplexity.ai does not give access to references/links via the API so Emacs will not be able to display references. They have a beta program for that running and I sure hope that this will be available generally soon.
 
 ### Setting up speech input / output
 
