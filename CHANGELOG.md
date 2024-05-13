@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.6] - 2024-05-13
+### Added
+Option to auto-fill paragraphs on insertion from the ai: With `(setq org-ai-auto-fill t)` set this behavior will invoke `fill-paragraph` on insertion when not inside a code block.
+
+
 ## [0.4.5] - 2024-05-08
 ### Changed
 -  fix(org-ai-openai-image): make generating images work with Org 9.7. Thank you @JakDar!

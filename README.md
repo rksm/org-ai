@@ -176,6 +176,10 @@ This behavior is enabled by default to so that the interaction is more similar t
 (setq org-ai-jump-to-end-of-block nil)
 ```
 
+#### Auto-fill paragraphs on insertion
+
+Set `(setq org-ai-auto-fill t)` to "fill" (automatically wrap lines according to `fill-column`) the inserted text. Basically like `auto-fill-mode` but for the AI.
+
 #### Block Options
 
 The `#+begin_ai...#+end_ai` block can take the following options.

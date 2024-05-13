@@ -37,6 +37,11 @@
   :type 'boolean
   :group 'org-ai)
 
+(defcustom org-ai-auto-fill nil
+  "If non-nil, will fill paragraphs when inserting completions."
+  :type 'boolean
+  :group 'org-ai)
+
 (defcustom org-ai-openai-api-token nil
   "This is your OpenAI API token.
 You need to specify if you do not store the token in
@@ -228,6 +233,9 @@ only contain fragments.")
 (defvar org-ai--chat-got-first-response nil)
 (make-variable-buffer-local 'org-ai--chat-got-first-response)
 
+(defvar org-ai--currently-inside-code-markers nil)
+(make-variable-buffer-local 'org-ai--currently-inside-code-markers)
+
 (defvar org-ai--url-buffer-last-position-marker nil
   "Local buffer var to store last read position.")
 ;; (make-variable-buffer-local 'org-ai--url-buffer-last-position-marker)
@@ -279,6 +287,7 @@ is the ai cloud service such as 'openai or 'azure-openai."
        (setq org-ai--chat-got-first-response nil)
        (setq org-ai--debug-data nil)
        (setq org-ai--debug-data-raw nil)
+       (setq org-ai--currently-inside-code-markers nil)
        (setq service (if (stringp service) (org-ai--read-service-name service) service))
        (let ((callback (cond
                         ((eq service 'anthropic) (lambda (result) (org-ai--insert-chat-completion-response-anthropic context buffer result)))
@@ -366,7 +375,14 @@ the response into."
                       (when (and (not org-ai--chat-got-first-response) (string-prefix-p "```" text))
                         ;; start markdown codeblock responses on their own line
                         (insert "\n"))
+                      ;; track if we are inside code markers
+                      (setq org-ai--currently-inside-code-markers (and (not org-ai--currently-inside-code-markers)
+                                                                       (string-match-p "```" text)))
                       (insert (decode-coding-string text 'utf-8))
+                      ;; "auto-fill"
+                      (when (and org-ai-auto-fill (not org-ai--currently-inside-code-markers))
+                        (fill-paragraph))
+                      ;; hook
                       (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text))
                     (setq org-ai--chat-got-first-response t))))
 
@@ -424,7 +440,14 @@ the response into."
                    (when (and (not org-ai--chat-got-first-response) (string-prefix-p "```" text))
                      ;; start markdown codeblock responses on their own line
                      (insert "\n"))
+                   ;; track if we are inside code markers
+                   (setq org-ai--currently-inside-code-markers (and (not org-ai--currently-inside-code-markers)
+                                                                    (string-match-p "```" text)))
                    (insert (decode-coding-string text 'utf-8))
+                   ;; "auto-fill"
+                   (when (and org-ai-auto-fill (not org-ai--currently-inside-code-markers))
+                     (fill-paragraph))
+                   ;; hook
                    (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text))
                  (setq org-ai--chat-got-first-response t)))
 
