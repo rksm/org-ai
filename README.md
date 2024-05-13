@@ -26,6 +26,7 @@ _Note: In order to use the OpenAI API you'll need an [OpenAI account](https://pl
     - [`#+begin_ai...#+end_ai` special blocks](#begin_aiend_ai-special-blocks)
         - [Syntax highlighting in ai blocks](#syntax-highlighting-in-ai-blocks)
         - [Jump to the end of the block after completion](#jump-to-the-end-of-the-block-after-completion)
+        - [Auto-fill paragraphs on insertion](#auto-fill-paragraphs-on-insertion)
         - [Block Options](#block-options)
             - [For ChatGPT](#for-chatgpt)
             - [For DALL-E](#for-dall-e)
