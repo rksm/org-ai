@@ -73,7 +73,8 @@ in the `auth-sources' file."
                                 "gpt-4"
                                 "gpt-4-32k"
                                 "gpt-4-vision-preview"
-                                "gpt-4-1106-preview")
+                                "gpt-4-turbo"
+                                "gpt-4o")
   "Alist of available chat models. See https://platform.openai.com/docs/models."
   :type '(alist :key-type string :value-type string)
   :group 'org-ai)
