@@ -79,6 +79,22 @@ in the `auth-sources' file."
   :type '(alist :key-type string :value-type string)
   :group 'org-ai)
 
+(defun org-ai--check-model (model endpoint)
+  "Check if the model name is somehow mistyped.
+`MODEL' is the model name. `ENDPOINT' is the API endpoint."
+  (unless model
+    (error "No org-ai model specified."))
+
+  (when (or (string-match-p "api.openai.com" endpoint)
+            (string-match-p "openai.azure.com" endpoint))
+
+    (let ((lowercased (downcase model)))
+      (when (and (string-prefix-p "gpt-" model) (not (string-equal lowercased model)))
+        (warn "Model name '%s' should be lowercase. Using '%s' instead." model lowercased)))
+
+    (unless (member model org-ai-chat-models)
+      (message "Model '%s' is not in the list of available models. Maybe this is because of a typo or maybe we haven't yet added it to the list. To disable this message add (add-to-list 'org-ai-chat-models \"%s\") to your init file." model model))))
+
 (defcustom org-ai-default-max-tokens nil
   "The default maximum number of tokens to generate. This is what costs money."
   :type 'string
@@ -498,6 +514,8 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
                                             :service service
                                             :stream t)))
 
+    (org-ai--check-model model endpoint)
+
     ;; (message "REQUEST %s %s" endpoint url-request-data)
 
     (setq org-ai--current-request-callback callback)
@@ -539,6 +557,8 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
 					    :presence-penalty presence-penalty
                                             :service service
                                             :stream nil)))
+
+    (org-ai--check-model model endpoint)
 
     ;; (message "REQUEST %s" url-request-data)
 
