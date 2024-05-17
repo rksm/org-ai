@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.4.7] - 2024-05-17
+### Changed
+Add new openai models to `org-ai-chat-models` and check if a model name is mistyped. Requested by [#110](https://github.com/rksm/org-ai/issues/110).
+
 ## [0.4.6] - 2024-05-13
 ### Added
 Option to auto-fill paragraphs on insertion from the ai: With `(setq org-ai-auto-fill t)` set this behavior will invoke `fill-paragraph` on insertion when not inside a code block.
