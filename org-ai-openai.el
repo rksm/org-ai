@@ -90,7 +90,7 @@ in the `auth-sources' file."
 
     (let ((lowercased (downcase model)))
       (when (and (string-prefix-p "gpt-" model) (not (string-equal lowercased model)))
-        (warn "Model name '%s' should be lowercase. Using '%s' instead." model lowercased)))
+        (warn "Model name '%s' should be lowercase. Use '%s' instead." model lowercased)))
 
     (unless (member model org-ai-chat-models)
       (message "Model '%s' is not in the list of available models. Maybe this is because of a typo or maybe we haven't yet added it to the list. To disable this message add (add-to-list 'org-ai-chat-models \"%s\") to your init file." model model))))
