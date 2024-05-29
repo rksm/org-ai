@@ -42,7 +42,7 @@
   :type 'boolean
   :group 'org-ai)
 
-(defcustom org-ai-openai-api-token nil
+(defcustom org-ai-openai-api-token ""
   "This is your OpenAI API token.
 You need to specify if you do not store the token in
 `auth-sources'. You can retrieve it at
