@@ -169,10 +169,11 @@ messages."
 (defun org-ai--openai-get-token (&optional service)
   "Try to get the openai token.
 Either from `org-ai-openai-api-token' or from auth-source."
-  (or org-ai-openai-api-token
-      (when org-ai-use-auth-source
-       (org-ai--openai-get-token-auth-source service))
-      (error "Please set `org-ai-openai-api-token' to your OpenAI API token or setup auth-source (see org-ai readme)")))
+  (if (not (string= "" org-ai-openai-api-token))
+      org-ai-openai-api-token
+    (when org-ai-use-auth-source
+      (org-ai--openai-get-token-auth-source service))
+    (error "Please set `org-ai-openai-api-token' to your OpenAI API token or setup auth-source (see org-ai readme)")))
 
 (defun org-ai--openai-get-token-auth-source (&optional service)
   "Retrieves the authentication token for the OpenAI service using auth-source."
