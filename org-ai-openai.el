@@ -306,7 +306,8 @@ is the ai cloud service such as 'openai or 'azure-openai."
        (setq org-ai--debug-data nil)
        (setq org-ai--debug-data-raw nil)
        (setq org-ai--currently-inside-code-markers nil)
-       (setq service (if (stringp service) (org-ai--read-service-name service) service))
+       (setq service (or (if (stringp service) (org-ai--read-service-name service) service)
+                         org-ai-service))
        (let ((callback (cond
                         ((eq service 'anthropic) (lambda (result) (org-ai--insert-chat-completion-response-anthropic context buffer result)))
                         (messages (lambda (result) (org-ai--insert-chat-completion-response context buffer result)))
