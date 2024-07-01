@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.8] - 2024-07-01
+### Changed
+- `org-ai--openai-get-token` checks for empty string, fixes [#113](https://github.com/rksm/org-ai/issues/113), thanks @andreas-roehler!
+- Use the value of `org-ai-service` when computing messages. This fixes an issue when e.g. anthropic was used as a service and no :service header arg was specified, e.g. in the non-org mode functions. Thanks @dangirsh!
+
+
 ## [0.4.7] - 2024-05-17
 ### Changed
 Add new openai models to `org-ai-chat-models` and check if a model name is mistyped. Requested by [#110](https://github.com/rksm/org-ai/issues/110).
