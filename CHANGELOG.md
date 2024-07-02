@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.4.9] - 2024-07-02
+- The changes to `org-ai--openai-get-token` were not working as intended. This is now fixed.
+
 ## [0.4.8] - 2024-07-01
 ### Changed
 - `org-ai--openai-get-token` checks for empty string, fixes [#113](https://github.com/rksm/org-ai/issues/113), thanks @andreas-roehler!
