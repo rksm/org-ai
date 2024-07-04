@@ -312,9 +312,8 @@ is the ai cloud service such as 'openai or 'azure-openai."
        (setq service (or (if (stringp service) (org-ai--read-service-name service) service)
                          org-ai-service))
        (let ((callback (cond
-                        ((eq service 'anthropic) (lambda (result) (org-ai--insert-chat-completion-response-anthropic context buffer result)))
-                        (messages (lambda (result) (org-ai--insert-chat-completion-response context buffer result)))
-                        (t (lambda (result) (org-ai--insert-stream-completion-response context buffer result))))))
+                        (messages (lambda (result) (org-ai--insert-stream-response context buffer result t)))
+                        (t (lambda (result) (org-ai--insert-single-response context buffer result))))))
          (org-ai-stream-request :prompt prompt
                                 :messages messages
                                 :model model
@@ -326,176 +325,171 @@ is the ai cloud service such as 'openai or 'azure-openai."
                                 :service service
                                 :callback callback))))))
 
-(defun org-ai--insert-stream-completion-response (context buffer &optional response)
+(defun org-ai--insert-single-response (context buffer &optional response)
   "Insert the response from the OpenAI API into the buffer.
 `CONTEXT' is the context of the special block. `BUFFER' is the
 buffer to insert the response into. `RESPONSE' is the response
 from the OpenAI API."
-  (if response
-      (if-let ((error (plist-get response 'error)))
-          (if-let ((message (plist-get error 'message))) (error message) (error error))
-        (if-let* ((choice (aref (plist-get response 'choices) 0))
-                  (text (plist-get choice 'text)))
-            (with-current-buffer buffer
-              ;; set mark so we can easily select the generated text (e.g. to delet it to try again)
-              (unless org-ai--current-insert-position-marker
-                (push-mark (org-element-property :contents-end context)))
-              (let ((pos (or (and org-ai--current-insert-position-marker
-                                  (marker-position org-ai--current-insert-position-marker))
-                             (org-element-property :contents-end context))))
-                (save-excursion
-                  (goto-char pos)
-
-                  (when (string-suffix-p "#+end_ai" (buffer-substring-no-properties (point) (line-end-position)))
-                    (insert "\n")
-                    (backward-char))
-                  (insert text)
-                  (setq org-ai--current-insert-position-marker (point-marker)))))))))
-
-(defun org-ai--insert-chat-completion-response (context buffer &optional response)
-  "`RESPONSE' is one JSON message of the stream response.
-When `RESPONSE' is nil, it means we are done. `CONTEXT' is the
-context of the special block. `BUFFER' is the buffer to insert
-the response into."
-
-  (let ((finish-reason))
-    (when response
-      ;; process response
-      (if-let ((error (plist-get response 'error)))
-          (if-let ((message (plist-get error 'message))) (error message) (error error))
-        (with-current-buffer buffer
-          (let ((pos (or (and org-ai--current-insert-position-marker
-                              (marker-position org-ai--current-insert-position-marker))
-                         (org-element-property :contents-end context))))
-            (save-excursion
-              (goto-char pos)
-
-              ;; make sure we have enough space at end of block, don't write on same line
-              (when (string-suffix-p "#+end_ai" (buffer-substring-no-properties (point) (line-end-position)))
-                (insert "\n")
-                (backward-char))
-
-              ;; insert text
-              (when-let* ((choices (or (alist-get 'choices response)
-                                       (plist-get response 'choices)))
-                          (choice (and (arrayp choices) (> (length choices) 0) (aref choices 0))))
-                (setq finish-reason (plist-get choice 'finish_reason))
-                (when-let ((delta (plist-get choice 'delta)))
-                  (when-let ((role (plist-get delta 'role)))
-                    (when (not (string= role org-ai--current-chat-role))
-                      (setq org-ai--current-chat-role role)
-                      (cond
-                       ((string= role "assistant")
-                        (insert "\n[AI]: "))
-                       ((string= role "user")
-                        (insert "\n[ME]: "))
-                       ((string= role "system")
-                        (insert "\n[SYS]: "))))
-                    (run-hook-with-args 'org-ai-after-chat-insertion-hook 'role role))
-                  (when-let ((text (plist-get delta 'content)))
-                    (when (or org-ai--chat-got-first-response (not (string= (string-trim text) "")))
-                      (when (and (not org-ai--chat-got-first-response) (string-prefix-p "```" text))
-                        ;; start markdown codeblock responses on their own line
-                        (insert "\n"))
-                      ;; track if we are inside code markers
-                      (setq org-ai--currently-inside-code-markers (and (not org-ai--currently-inside-code-markers)
-                                                                       (string-match-p "```" text)))
-                      (insert (decode-coding-string text 'utf-8))
-                      ;; "auto-fill"
-                      (when (and org-ai-auto-fill (not org-ai--currently-inside-code-markers))
-                        (fill-paragraph))
-                      ;; hook
-                      (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text))
-                    (setq org-ai--chat-got-first-response t))))
-
-              (setq org-ai--current-insert-position-marker (point-marker)))))))
-
-    ;; insert new prompt and change position
-    (with-current-buffer buffer
-      (when finish-reason
-        (save-excursion
-          (when org-ai--current-insert-position-marker
-            (goto-char org-ai--current-insert-position-marker))
-
-          ;; (message "inserting user prompt: %" (string= org-ai--current-chat-role "user"))
-          (let ((text "\n\n[ME]: "))
-            (insert text)
-            (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end text)
-            (setq org-ai--current-insert-position-marker (point-marker))))
-
-        (org-element-cache-reset)
-
-        (when org-ai-jump-to-end-of-block (goto-char org-ai--current-insert-position-marker))))))
-
-(defun org-ai--insert-chat-completion-response-anthropic (context buffer &optional response)
-  "`RESPONSE' is one JSON message of the stream response.
-When `RESPONSE' is nil, it means we are done. `CONTEXT' is the
-context of the special block. `BUFFER' is the buffer to insert
-the response into."
-
   (when response
-    ;; process response
     (if-let ((error (plist-get response 'error)))
         (if-let ((message (plist-get error 'message))) (error message) (error error))
-      (with-current-buffer buffer
-        (let ((pos (or (and org-ai--current-insert-position-marker
-                            (marker-position org-ai--current-insert-position-marker))
-                       (org-element-property :contents-end context)))
-              end-p)
-          (save-excursion
-            (goto-char pos)
+      (if-let* ((choice (aref (plist-get response 'choices) 0))
+                (text (plist-get choice 'text)))
+          (with-current-buffer buffer
+            ;; set mark so we can easily select the generated text (e.g. to delet it to try again)
+            (unless org-ai--current-insert-position-marker
+              (push-mark (org-element-property :contents-end context)))
+            (let ((pos (or (and org-ai--current-insert-position-marker
+                                (marker-position org-ai--current-insert-position-marker))
+                           (org-element-property :contents-end context))))
+              (save-excursion
+                (goto-char pos)
 
-            ;; make sure we have enough space at end of block, don't write on same line
-            (when (string-suffix-p "#+end_ai" (buffer-substring-no-properties (point) (line-end-position)))
-              (insert "\n")
-              (backward-char))
+                (when (string-suffix-p "#+end_ai" (buffer-substring-no-properties (point) (line-end-position)))
+                  (insert "\n")
+                  (backward-char))
+                (insert text)
+                (setq org-ai--current-insert-position-marker (point-marker)))))))))
 
-            ;; insert text
-            (pcase (plist-get response 'type)
-              ("content_block_start"
-               (insert "\n[AI]: ")
-               (run-hook-with-args 'org-ai-after-chat-insertion-hook 'role "assistant"))
 
-              ("content_block_delta"
-               (when-let ((text (plist-get (plist-get response 'delta) 'text)))
-                 (when (or org-ai--chat-got-first-response (not (string= (string-trim text) "")))
-                   (when (and (not org-ai--chat-got-first-response) (string-prefix-p "```" text))
-                     ;; start markdown codeblock responses on their own line
-                     (insert "\n"))
-                   ;; track if we are inside code markers
-                   (setq org-ai--currently-inside-code-markers (and (not org-ai--currently-inside-code-markers)
-                                                                    (string-match-p "```" text)))
-                   (insert (decode-coding-string text 'utf-8))
-                   ;; "auto-fill"
-                   (when (and org-ai-auto-fill (not org-ai--currently-inside-code-markers))
-                     (fill-paragraph))
-                   ;; hook
-                   (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text))
-                 (setq org-ai--chat-got-first-response t)))
+(cl-deftype org-ai--response-type ()
+  '(member role text stop error))
 
-              ("content_block_stop" nil)
+(cl-defstruct org-ai--response
+  (type (:type org-ai--response-type))
+  payload)
 
-              ("message_delta"
-               (let ((finish-reason (plist-get (plist-get response 'delta) 'stop_reason))
-                     (output-tokens (plist-get (plist-get response 'usage) 'output_tokens)))
-                 (message "finished reason=%s tokens=%s" finish-reason output-tokens)))
+;; Her is an example for how a full sequence of OpenAI responses looks like:
+;; '((id "chatcmpl-9hM1UJgWe4cWKcJKvoMBzzebOOzli" object "chat.completion.chunk" created 1720119788 model "gpt-4o-2024-05-13" system_fingerprint "fp_d576307f90" choices [(index 0 delta (role "assistant" content "") logprobs nil finish_reason nil)])
+;;   (id "chatcmpl-9hM1UJgWe4cWKcJKvoMBzzebOOzli" object "chat.completion.chunk" created 1720119788 model "gpt-4o-2024-05-13" system_fingerprint "fp_d576307f90" choices [(index 0 delta (content "Hello") logprobs nil finish_reason nil)])
+;;   (id "chatcmpl-9hM1UJgWe4cWKcJKvoMBzzebOOzli" object "chat.completion.chunk" created 1720119788 model "gpt-4o-2024-05-13" system_fingerprint "fp_d576307f90" choices [(index 0 delta (content ",") logprobs nil finish_reason nil)])
+;;   (id "chatcmpl-9hM1UJgWe4cWKcJKvoMBzzebOOzli" object "chat.completion.chunk" created 1720119788 model "gpt-4o-2024-05-13" system_fingerprint "fp_d576307f90" choices [(index 0 delta (content " Robert") logprobs nil finish_reason nil)])
+;;   (id "chatcmpl-9hM1UJgWe4cWKcJKvoMBzzebOOzli" object "chat.completion.chunk" created 1720119788 model "gpt-4o-2024-05-13" system_fingerprint "fp_d576307f90" choices [(index 0 delta nil logprobs nil finish_reason "stop")])
+;;   nil)
+;;
+;; and Anthropic:
+;; '((type "message_start" message (id "msg_01HoMq4LgkUpHpkXqXoZ7R1W" type "message" role "assistant" model "claude-3-5-sonnet-20240620" content [] stop_reason nil stop_sequence nil usage (input_tokens 278 output_tokens 2)))
+;;   (type "content_block_start" index 0 content_block (type "text" text ""))
+;;   (type "ping")
+;;   (type "content_block_delta" index 0 delta (type "text_delta" text "Hello Robert"))
+;;   (type "content_block_delta" index 0 delta (type "text_delta" text "."))
+;;   (type "content_block_stop" index 0)
+;;   (type "message_delta" delta (stop_reason "end_turn" stop_sequence nil) usage (output_tokens 22))
+;;   (type "message_stop"))
+(defun org-ai--normalize-response (response)
+  "This function normalizes JSON data received from OpenAI-style and Anthropic endpoints.
+`RESPONSE' is one JSON message of the stream response."
 
-              ("message_stop"
-               (with-current-buffer buffer
-                 (when org-ai--current-insert-position-marker
-                   (goto-char org-ai--current-insert-position-marker))
+  (if-let ((error-message (plist-get response 'error)))
+      (list (make-org-ai--response :type 'error :payload (or (plist-get error 'message) error-message)))
 
-                 ;; (message "inserting user prompt: %" (string= org-ai--current-chat-role "user"))
-                 (let ((text "\n\n[ME]: "))
-                   (insert text)
-                   (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end text))
-                 (org-element-cache-reset)
-                 (setq end-p t))))
+    (let ((response-type (plist-get response 'type)))
 
-            (setq org-ai--current-insert-position-marker (point-marker)))
+      ;; first try anthropic
+      (cond
+       ((string= response-type "ping") nil)
+       ((string= response-type "message_start")
+        (when-let ((role (plist-get (plist-get response 'message) 'role)))
+          (list (make-org-ai--response :type 'role :payload role))))
+       ((string= response-type "content_block_start")
+        (when-let ((text (plist-get (plist-get response 'content_block) 'text)))
+          (list (make-org-ai--response :type 'text :payload text))))
+       ((string= response-type "content_block_delta")
+        (when-let ((text (plist-get (plist-get response 'delta) 'text)))
+          (list (make-org-ai--response :type 'text :payload text))))
+       ((string= response-type "content_block_stop") nil)
+       ((string= response-type "message_delta")
+        (when-let ((stop-reason (plist-get (plist-get response 'delta) 'stop_reason)))
+          (list (make-org-ai--response :type 'stop :payload stop-reason))))
+       ((string= response-type "message_stop") nil)
 
-          (when (and org-ai-jump-to-end-of-block end-p)
-            (goto-char org-ai--current-insert-position-marker)))))))
+       ;; not anthropic, try openai
+       (t (let ((choices (plist-get response 'choices)))
+            (cl-loop for choice across choices
+                     append (or (when-let ((role (plist-get (plist-get choice 'delta) 'role)))
+                                  (list (make-org-ai--response :type 'role :payload role)))
+                                (when-let ((role (plist-get (plist-get choice 'delta) 'content)))
+                                  (list (make-org-ai--response :type 'text :payload role)))
+                                (when-let ((finish-reason (plist-get choice 'finish_reason)))
+                                  (list (make-org-ai--response :type 'stop :payload finish-reason)))))))))))
+
+(defun org-ai--insert-stream-response (context buffer &optional response insert-role)
+  "`RESPONSE' is one JSON message of the stream response.
+When `RESPONSE' is nil, it means we are done. `CONTEXT' is the
+context of the special block. `BUFFER' is the buffer to insert
+the response into."
+  (cl-loop for response in (org-ai--normalize-response response)
+           do (let ((type (org-ai--response-type response)))
+                (when (eq type 'error)
+                  (error (org-ai--response-payload response)))
+
+                (with-current-buffer buffer
+                  (let ((pos (or (and org-ai--current-insert-position-marker
+                                      (marker-position org-ai--current-insert-position-marker))
+                                 (and context (org-element-property :contents-end context))
+                                 (point))))
+                    (save-excursion
+                      (goto-char pos)
+
+                      ;; make sure we have enough space at end of block, don't write on same line
+                      (when (string-suffix-p "#+end_ai" (buffer-substring-no-properties (point) (line-end-position)))
+                        (insert "\n")
+                        (backward-char)))
+
+                    (cl-case type
+
+                      (role (let ((role (org-ai--response-payload response)))
+                              (when (not (string= role org-ai--current-chat-role))
+                               (save-excursion
+                                 (goto-char pos)
+
+                                 (setq org-ai--current-chat-role role)
+                                 (let ((role (and insert-role (org-ai--response-payload response))))
+                                   (cond
+                                    ((string= role "assistant")
+                                     (insert "\n[AI]: "))
+                                    ((string= role "user")
+                                     (insert "\n[ME]: "))
+                                    ((string= role "system")
+                                     (insert "\n[SYS]: ")))
+                                   (run-hook-with-args 'org-ai-after-chat-insertion-hook 'role role)
+                                   (setq org-ai--current-insert-position-marker (point-marker)))))))
+
+                      (text (let ((text (org-ai--response-payload response)))
+                              (save-excursion
+                                (goto-char pos)
+                                (when (or org-ai--chat-got-first-response (not (string= (string-trim text) "")))
+                                  (when (and (not org-ai--chat-got-first-response) (string-prefix-p "```" text))
+                                    ;; start markdown codeblock responses on their own line
+                                    (insert "\n"))
+                                  ;; track if we are inside code markers
+                                  (setq org-ai--currently-inside-code-markers (and (not org-ai--currently-inside-code-markers)
+                                                                                   (string-match-p "```" text)))
+                                  (insert (decode-coding-string text 'utf-8))
+                                  ;; "auto-fill"
+                                  (when (and org-ai-auto-fill (not org-ai--currently-inside-code-markers))
+                                    (fill-paragraph))
+                                  ;; hook
+                                  (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text))
+                                (setq org-ai--chat-got-first-response t)
+                                (setq org-ai--current-insert-position-marker (point-marker)))))
+
+                      (stop (progn
+                              (save-excursion
+                                (when org-ai--current-insert-position-marker
+                                  (goto-char org-ai--current-insert-position-marker))
+
+                                ;; (message "inserting user prompt: %" (string= org-ai--current-chat-role "user"))
+                                (let ((text (if insert-role
+                                                (let ((text "\n\n[ME]: "))
+                                                  (insert text)
+                                                  text)
+                                              "")))
+                                  (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end text)
+                                  (setq org-ai--current-insert-position-marker (point-marker))))
+
+                              (org-element-cache-reset)
+                              (when org-ai-jump-to-end-of-block (goto-char org-ai--current-insert-position-marker))))))))))
 
 (cl-defun org-ai-stream-request (&optional &key prompt messages model max-tokens temperature top-p frequency-penalty presence-penalty service callback)
   "Send a request to the OpenAI API.
@@ -539,67 +533,6 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
         (add-hook 'after-change-functions #'org-ai--url-request-on-change-function nil t)))
 
     org-ai--current-request-buffer-for-stream))
-
-(cl-defun org-ai-chat-request (&optional &key messages model max-tokens temperature top-p frequency-penalty presence-penalty service callback)
-  "Send a request to the OpenAI API. Do not stream.
-`MESSAGES' is the query for chatgpt.
-`CALLBACK' is the callback function.
-`MODEL' is the model to use.
-`MAX-TOKENS' is the maximum number of tokens to generate.
-`TEMPERATURE' is the temperature of the distribution.
-`TOP-P' is the top-p value.
-`FREQUENCY-PENALTY' is the frequency penalty.
-`PRESENCE-PENALTY' is the presence penalty."
-  (let* ((url-request-extra-headers (org-ai--get-headers service))
-         (url-request-method "POST")
-         (endpoint (org-ai--get-endpoint messages service))
-         (url-request-data (org-ai--payload :messages messages
-					    :model model
-					    :max-tokens max-tokens
-					    :temperature temperature
-					    :top-p top-p
-					    :frequency-penalty frequency-penalty
-					    :presence-penalty presence-penalty
-                                            :service service
-                                            :stream nil)))
-
-    (org-ai--check-model model endpoint)
-
-    ;; (message "REQUEST %s" url-request-data)
-
-    (setq org-ai--current-request-buffer
-          (url-retrieve
-           endpoint
-           (lambda (_events)
-             (unless (org-ai--maybe-show-openai-request-error
-                      org-ai--current-request-buffer)
-               (when callback
-                 (with-current-buffer org-ai--current-request-buffer
-                   (condition-case err
-                       (progn (when (and (boundp 'url-http-end-of-headers) url-http-end-of-headers)
-                                (goto-char url-http-end-of-headers))
-                              (if-let* ((result (json-read))
-                                        (usage (alist-get 'usage result))
-                                        (choices (alist-get 'choices result))
-                                        (choice (aref choices 0))
-                                        (message (alist-get 'message choice))
-                                        (role (alist-get 'role message))
-                                        (content (alist-get 'content message)))
-                                  (funcall callback content role usage)
-                                (funcall callback nil nil nil)))
-                     (error (org-ai--show-error err)))))))))
-
-    ;;(display-buffer-use-some-window org-ai--current-request-buffer nil)
-
-    org-ai--current-request-buffer))
-
-;; (org-ai-chat-request
-;;  :messages (org-ai--collect-chat-messages "Hello, how are you?")
-;;  :model "gpt-4"
-;;  :callback (lambda (content role usage)
-;;              (message "content: %s" content)
-;;              (message "ROLE: %s" role)
-;;              (message "USAGE: %s" usage)))
 
 (defun org-ai--maybe-show-openai-request-error (request-buffer)
   "If the API request returned an error, show it.

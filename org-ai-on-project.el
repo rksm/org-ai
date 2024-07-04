@@ -785,21 +785,12 @@ requested) or we:
     (let* ((prompt (with-current-buffer buf (buffer-string)))
            (start-pos (with-current-buffer buf (point)))
 
-           (response-buffer (if org-ai-on-project-use-stream
-                                (org-ai-prompt prompt
-                                               :follow t
-                                               :output-buffer buf
-                                               :callback (lambda ()
-                                                           (when-let ((request (org-ai-on-project--request-cleanup)))
-                                                             (org-ai-on-project--run-done request))))
-                              (org-ai-chat-request
-                               :messages (org-ai--collect-chat-messages prompt)
-                               :model org-ai-default-chat-model
-                               :callback (lambda (content _role _usage)
-                                           (with-current-buffer buf
-                                             (save-excursion (insert content))
-                                             (when-let ((request (org-ai-on-project--request-cleanup)))
-                                               (org-ai-on-project--run-done request)))))))
+           (response-buffer (org-ai-prompt prompt
+                                           :follow t
+                                           :output-buffer buf
+                                           :callback (lambda ()
+                                                       (when-let ((request (org-ai-on-project--request-cleanup)))
+                                                         (org-ai-on-project--run-done request)))))
 
            (request (make-org-ai-on-project--request-in-progress
                      :state state
