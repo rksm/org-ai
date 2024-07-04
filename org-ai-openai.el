@@ -515,7 +515,6 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
 					    :presence-penalty presence-penalty
                                             :service service
                                             :stream t)))
-
     (org-ai--check-model model endpoint)
 
     ;; (message "REQUEST %s %s" endpoint url-request-data)

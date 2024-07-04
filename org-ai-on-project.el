@@ -762,6 +762,7 @@ requested) or we:
       (error "No prompt"))
 
     (with-current-buffer buf
+      (setq org-ai--current-insert-position-marker nil) ;; reset, buffer-local
       (setq-local default-directory (org-ai-on-project--state-base-dir state))
       (toggle-truncate-lines -1)
       (erase-buffer)
@@ -779,11 +780,12 @@ requested) or we:
                     (insert "```\n\n")))
       (insert final-instruction "\n\n")
       (switch-to-buffer buf)
+      (goto-char (point-max))
       (recenter-top-bottom 1))
 
     ;; now run the AI model on it
     (let* ((prompt (with-current-buffer buf (buffer-string)))
-           (start-pos (with-current-buffer buf (point)))
+           (start-pos (with-current-buffer buf (point-max)))
 
            (response-buffer (org-ai-prompt prompt
                                            :follow t
