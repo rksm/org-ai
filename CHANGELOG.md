@@ -1,7 +1,17 @@
 # Changelog
 
+## [0.5.0] - 2024-07-05
+### Changed
+- Internal changes around API request handling that normalizes OpenAPI and Anthropic requests so that the same downstream logic can be used for both. In case code depended on the old behavior this might be a breaking change, so I bumped the minor version.
+- Fixes for org-ai-on-project:
+  - Should now work with anthropic models
+  - Fixed prompt/completion insertion behavior
+
+
 ## [0.4.9] - 2024-07-02
+### Changed
 - The changes to `org-ai--openai-get-token` were not working as intended. This is now fixed.
+
 
 ## [0.4.8] - 2024-07-01
 ### Changed
