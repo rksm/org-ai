@@ -304,13 +304,6 @@ is the ai cloud service such as 'openai or 'azure-openai."
         (frequency-penalty)
         (presence-penalty)
         (service))
-       (setq org-ai--current-insert-position-marker nil)
-       (setq org-ai--chat-got-first-response nil)
-       (setq org-ai--debug-data nil)
-       (setq org-ai--debug-data-raw nil)
-       (setq org-ai--currently-inside-code-markers nil)
-       (setq service (or (if (stringp service) (org-ai--read-service-name service) service)
-                         org-ai-service))
        (let ((callback (cond
                         (messages (lambda (result) (org-ai--insert-stream-response context buffer result t)))
                         (t (lambda (result) (org-ai--insert-single-response context buffer result))))))
@@ -501,6 +494,14 @@ model to use. `MAX-TOKENS' is the maximum number of tokens to
 generate. `TEMPERATURE' is the temperature of the distribution.
 `TOP-P' is the top-p value. `FREQUENCY-PENALTY' is the frequency
 penalty. `PRESENCE-PENALTY' is the presence penalty."
+  (setq org-ai--current-insert-position-marker nil)
+  (setq org-ai--chat-got-first-response nil)
+  (setq org-ai--debug-data nil)
+  (setq org-ai--debug-data-raw nil)
+  (setq org-ai--currently-inside-code-markers nil)
+  (setq service (or (if (stringp service) (org-ai--read-service-name service) service)
+                    org-ai-service))
+
   (let* ((url-request-extra-headers (org-ai--get-headers service))
          (url-request-method "POST")
          (endpoint (org-ai--get-endpoint messages service))
