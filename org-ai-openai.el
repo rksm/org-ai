@@ -418,78 +418,80 @@ from the OpenAI API."
 When `RESPONSE' is nil, it means we are done. `CONTEXT' is the
 context of the special block. `BUFFER' is the buffer to insert
 the response into."
-  (cl-loop for response in (org-ai--normalize-response response)
-           do (let ((type (org-ai--response-type response)))
-                (when (eq type 'error)
-                  (error (org-ai--response-payload response)))
+  (let ((normalized (org-ai--normalize-response response)))
+   (cl-loop for response in normalized
+            do (let ((type (org-ai--response-type response)))
+                 (when (eq type 'error)
+                   (error (org-ai--response-payload response)))
 
-                (with-current-buffer buffer
-                  (let ((pos (or (and org-ai--current-insert-position-marker
-                                      (marker-position org-ai--current-insert-position-marker))
-                                 (and context (org-element-property :contents-end context))
-                                 (point))))
-                    (save-excursion
-                      (goto-char pos)
+                 (with-current-buffer buffer
+                   (let ((pos (or (and org-ai--current-insert-position-marker
+                                       (marker-position org-ai--current-insert-position-marker))
+                                  (and context (org-element-property :contents-end context))
+                                  (point))))
+                     (save-excursion
+                       (goto-char pos)
 
-                      ;; make sure we have enough space at end of block, don't write on same line
-                      (when (string-suffix-p "#+end_ai" (buffer-substring-no-properties (point) (line-end-position)))
-                        (insert "\n")
-                        (backward-char)))
+                       ;; make sure we have enough space at end of block, don't write on same line
+                       (when (string-suffix-p "#+end_ai" (buffer-substring-no-properties (point) (line-end-position)))
+                         (insert "\n")
+                         (backward-char)))
 
-                    (cl-case type
+                     (cl-case type
 
-                      (role (let ((role (org-ai--response-payload response)))
-                              (when (not (string= role org-ai--current-chat-role))
+                       (role (let ((role (org-ai--response-payload response)))
+                               (when (not (string= role org-ai--current-chat-role))
+                                 (save-excursion
+                                   (goto-char pos)
+
+                                   (setq org-ai--current-chat-role role)
+                                   (let ((role (and insert-role (org-ai--response-payload response))))
+                                     (cond
+                                      ((string= role "assistant")
+                                       (insert "\n[AI]: "))
+                                      ((string= role "user")
+                                       (insert "\n[ME]: "))
+                                      ((string= role "system")
+                                       (insert "\n[SYS]: ")))
+                                     (run-hook-with-args 'org-ai-after-chat-insertion-hook 'role role)
+                                     (setq org-ai--current-insert-position-marker (point-marker)))))))
+
+                       (text (let ((text (org-ai--response-payload response)))
                                (save-excursion
                                  (goto-char pos)
+                                 (when (or org-ai--chat-got-first-response (not (string= (string-trim text) "")))
+                                   (when (and (not org-ai--chat-got-first-response) (string-prefix-p "```" text))
+                                     ;; start markdown codeblock responses on their own line
+                                     (insert "\n"))
+                                   ;; track if we are inside code markers
+                                   (setq org-ai--currently-inside-code-markers (and (not org-ai--currently-inside-code-markers)
+                                                                                    (string-match-p "```" text)))
+                                   (insert (decode-coding-string text 'utf-8))
+                                   ;; "auto-fill"
+                                   (when (and org-ai-auto-fill (not org-ai--currently-inside-code-markers))
+                                     (fill-paragraph))
+                                   ;; hook
+                                   (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text))
+                                 (setq org-ai--chat-got-first-response t)
+                                 (setq org-ai--current-insert-position-marker (point-marker)))))
 
-                                 (setq org-ai--current-chat-role role)
-                                 (let ((role (and insert-role (org-ai--response-payload response))))
-                                   (cond
-                                    ((string= role "assistant")
-                                     (insert "\n[AI]: "))
-                                    ((string= role "user")
-                                     (insert "\n[ME]: "))
-                                    ((string= role "system")
-                                     (insert "\n[SYS]: ")))
-                                   (run-hook-with-args 'org-ai-after-chat-insertion-hook 'role role)
-                                   (setq org-ai--current-insert-position-marker (point-marker)))))))
+                       (stop (progn
+                               (save-excursion
+                                 (when org-ai--current-insert-position-marker
+                                   (goto-char org-ai--current-insert-position-marker))
 
-                      (text (let ((text (org-ai--response-payload response)))
-                              (save-excursion
-                                (goto-char pos)
-                                (when (or org-ai--chat-got-first-response (not (string= (string-trim text) "")))
-                                  (when (and (not org-ai--chat-got-first-response) (string-prefix-p "```" text))
-                                    ;; start markdown codeblock responses on their own line
-                                    (insert "\n"))
-                                  ;; track if we are inside code markers
-                                  (setq org-ai--currently-inside-code-markers (and (not org-ai--currently-inside-code-markers)
-                                                                                   (string-match-p "```" text)))
-                                  (insert (decode-coding-string text 'utf-8))
-                                  ;; "auto-fill"
-                                  (when (and org-ai-auto-fill (not org-ai--currently-inside-code-markers))
-                                    (fill-paragraph))
-                                  ;; hook
-                                  (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text))
-                                (setq org-ai--chat-got-first-response t)
-                                (setq org-ai--current-insert-position-marker (point-marker)))))
+                                 ;; (message "inserting user prompt: %" (string= org-ai--current-chat-role "user"))
+                                 (let ((text (if insert-role
+                                                 (let ((text "\n\n[ME]: "))
+                                                   (insert text)
+                                                   text)
+                                               "")))
+                                   (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end text)
+                                   (setq org-ai--current-insert-position-marker (point-marker))))
 
-                      (stop (progn
-                              (save-excursion
-                                (when org-ai--current-insert-position-marker
-                                  (goto-char org-ai--current-insert-position-marker))
-
-                                ;; (message "inserting user prompt: %" (string= org-ai--current-chat-role "user"))
-                                (let ((text (if insert-role
-                                                (let ((text "\n\n[ME]: "))
-                                                  (insert text)
-                                                  text)
-                                              "")))
-                                  (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end text)
-                                  (setq org-ai--current-insert-position-marker (point-marker))))
-
-                              (org-element-cache-reset)
-                              (when org-ai-jump-to-end-of-block (goto-char org-ai--current-insert-position-marker))))))))))
+                               (org-element-cache-reset)
+                               (when org-ai-jump-to-end-of-block (goto-char org-ai--current-insert-position-marker)))))))))
+   normalized))
 
 (cl-defun org-ai-stream-request (&optional &key prompt messages model max-tokens temperature top-p frequency-penalty presence-penalty service callback)
   "Send a request to the OpenAI API.

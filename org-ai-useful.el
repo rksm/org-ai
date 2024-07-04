@@ -141,26 +141,11 @@ Will always return t if `org-ai-talk-confirm-speech-input' is nil."
         (org-ai-stream-request :messages (org-ai--collect-chat-messages input)
                                :model org-ai-default-chat-model
                                :callback (lambda (response)
-                                           (if-let* ((choices (or (alist-get 'choices response)
-                                                                  (plist-get response 'choices)))
-                                                     (choice (aref choices 0)))
-                                               (let ((delta (plist-get choice 'delta)))
-                                                 (cond
-                                                  ((plist-get delta 'role)
-                                                   (let ((role (plist-get delta 'role)))
-                                                     (run-hook-with-args 'org-ai-after-chat-insertion-hook 'role role)))
-                                                  ((plist-get delta 'content)
-                                                   (let ((text (plist-get delta 'content)))
-                                                     (org-ai-prompt--insert output-buffer text follow)
-                                                     (run-hook-with-args 'org-ai-after-chat-insertion-hook 'text text)))
-                                                  ((plist-get choice 'finish_reason)
-                                                   (when select-output
-                                                     (with-current-buffer output-buffer
-                                                       (set-mark (point))
-                                                       (goto-char start-pos-marker))))))
-                                             (setq org-ai-prompt--last-insertion-marker nil)
-                                             (run-hook-with-args 'org-ai-after-chat-insertion-hook 'end "")
-                                             (when callback (with-current-buffer output-buffer (funcall callback))))))))))
+                                           (when (cl-some (lambda (ea) (eq 'stop (org-ai--response-type ea)))
+                                                          (org-ai--insert-stream-response nil output-buffer response nil))
+                                             (when callback
+                                               (with-current-buffer
+                                                   output-buffer (funcall callback))))))))))
 
 (defcustom org-ai-prompt-in-new-buffer-reuses-single-buffer t
   "When set to t, `org-ai-prompt-in-new-buffer' creates a single
