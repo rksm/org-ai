@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.1] - 2024-07-10
+### Changed
+- improve org-ai-on-project file selection:
+  - when a region is active on the file list, toggle the checkboxes in that region ("multi-select")
+  - keep selection when file filter is changed, this makes it easier to search and choose specific files in large projects
+  - show a summary and byte size of the selected files (it would probably be better to estimate tokens but for it's that)
+  - fix input in text fields in org-ai-on-project for keys that are bound to commands in non-text context
+
 ## [0.5.0] - 2024-07-05
 ### Changed
 - Internal changes around API request handling that normalizes OpenAPI and Anthropic requests so that the same downstream logic can be used for both. In case code depended on the old behavior this might be a breaking change, so I bumped the minor version.
