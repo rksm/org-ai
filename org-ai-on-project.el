@@ -525,12 +525,27 @@ STATE is `org-ai-on-project--state'."
                                (when org-ai-files (message "Found existing set of .orgai__* files!"))))
                    "Search")))
 
+
+(defun org-ai--human-readable-file-size (size)
+  "Return SIZE in a human readable format."
+  (let ((units '("B" "KB" "MB" "GB" "TB" "PB" "EB" "ZB" "YB"))
+        (unit 0))
+    (while (and (> size 1024) (not (zerop size)))
+        (setq size (/ size 1024.0)
+                unit (1+ unit)))
+        (format "%.2f %s" size (nth unit units))))
+
 (defun org-ai-on-project--render-total-selected (state)
   "Render the total number of selected files.
 STATE is `org-ai-on-project--state'."
-  (let ((selected-count (hash-table-count (org-ai-on-project--state-selected-files state))))
-    (widget-insert "\n\n")
+  (let* ((selected-count (hash-table-count (org-ai-on-project--state-selected-files state)))
+         (byte-size (cl-loop for file in (hash-table-keys (org-ai-on-project--state-selected-files state))
+                             sum (or (nth 7 (file-attributes file)) 0)))
+         (readable-size (if byte-size
+                            (org-ai--human-readable-file-size byte-size)
+                          "0 bytes")))
     (widget-insert (format "Total selected files: %s" selected-count))
+    (widget-insert (format " (%s)" readable-size))
     (widget-insert " ")
     (widget-create 'push-button
                    :notify (lambda (&rest _ignore)
@@ -545,13 +560,14 @@ the on-project buffer that is fully rendered.
 STATE is `org-ai-on-project--state'."
   (save-excursion
     (let ((inhibit-read-only t)
-	(inhibit-modification-hooks t))
+	  (inhibit-modification-hooks t))
       (goto-char (point-min))
       (condition-case err
           (progn
             (re-search-forward "Total selected files: [0-9]+" nil nil)
-            (backward-kill-word 1)
-            (insert (format "%s" (hash-table-count (org-ai-on-project--state-selected-files state)))))
+            (beginning-of-line)
+            (delete-region (point) (line-end-position))
+            (org-ai-on-project--render-total-selected state))
         (error nil)))))
 
 
@@ -593,6 +609,7 @@ STATE is `org-ai-on-project--state'."
                            (org-ai-on-project--render state))
                  "Select none")
 
+  (widget-insert "\n\n")
   (org-ai-on-project--render-total-selected state))
 
 
