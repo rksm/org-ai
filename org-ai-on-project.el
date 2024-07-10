@@ -103,6 +103,7 @@ patches."
   base-dir
   file-search-pattern
   files
+  selected-files
   org-ai-files
   modify-code
   modify-with-diffs
@@ -112,8 +113,7 @@ patches."
   "Represents a selected file choosen to be run on."
   file
   full-path
-  region
-  chosen)
+  region)
 
 (cl-defstruct org-ai-on-project--request-in-progress
   "State of the request in progress."
@@ -209,7 +209,9 @@ Add all those to STATE."
   (let* ((base-dir (org-ai-on-project--state-base-dir state))
          (pattern (org-ai-on-project--state-file-search-pattern state))
          (search-result (org-ai-on-project--find-files base-dir pattern)))
+
     (cl-destructuring-bind (files . org-ai-files) search-result
+      (setq files (sort files (lambda (a b) (string< (org-ai-on-project--file-file a) (org-ai-on-project--file-file b)))))
       (setf (org-ai-on-project--state-files state) files)
       (setf (org-ai-on-project--state-org-ai-files state) org-ai-files))))
 
@@ -523,6 +525,36 @@ STATE is `org-ai-on-project--state'."
                                (when org-ai-files (message "Found existing set of .orgai__* files!"))))
                    "Search")))
 
+(defun org-ai-on-project--render-total-selected (state)
+  "Render the total number of selected files.
+STATE is `org-ai-on-project--state'."
+  (let ((selected-count (hash-table-count (org-ai-on-project--state-selected-files state))))
+    (widget-insert "\n\n")
+    (widget-insert (format "Total selected files: %s" selected-count))
+    (widget-insert " ")
+    (widget-create 'push-button
+                   :notify (lambda (&rest _ignore)
+                             (setf (org-ai-on-project--state-selected-files state) (make-hash-table :test 'equal))
+                             (org-ai-on-project--render state))
+                   "X")))
+
+
+(defun org-ai-on-project--render-total-selected-refresh (state)
+  "Rerenders the total number of selected files. Assumes we are in
+the on-project buffer that is fully rendered.
+STATE is `org-ai-on-project--state'."
+  (save-excursion
+    (let ((inhibit-read-only t)
+	(inhibit-modification-hooks t))
+      (goto-char (point-min))
+      (condition-case err
+          (progn
+            (re-search-forward "Total selected files: [0-9]+" nil nil)
+            (backward-kill-word 1)
+            (insert (format "%s" (hash-table-count (org-ai-on-project--state-selected-files state)))))
+        (error nil)))))
+
+
 (defun org-ai-on-project--render-files (state)
   "Render the files.
 If we have modifications, offer diff/patch options.
@@ -537,7 +569,7 @@ STATE is `org-ai-on-project--state'."
                do (org-ai-on-project--render-file-without-modification state file)))
 
     (when too-many-files-p
-      (widget-insert (format "\nToo many files to display. Showing %s of %s files.\n"
+      (widget-insert (format "\nToo many files to display. Showing %s of %s files. Use the filter to \n"
                              org-ai-on-project-max-files
                              (length files)))))
 
@@ -546,30 +578,56 @@ STATE is `org-ai-on-project--state'."
   (widget-create 'push-button
                  :notify (lambda (&rest _ignore)
                            (cl-loop with files = (org-ai-on-project--state-files state)
+                                    with selected-files = (org-ai-on-project--state-selected-files state)
                                     for file in files
-                                    do (setf (org-ai-on-project--file-chosen file) t))
+                                    do (puthash (org-ai-on-project--file-file file) file selected-files))
                            (org-ai-on-project--render state))
                  "Select all")
   (widget-insert " ")
   (widget-create 'push-button
                  :notify (lambda (&rest _ignore)
                            (cl-loop with files = (org-ai-on-project--state-files state)
+                                    with selected-files = (org-ai-on-project--state-selected-files state)
                                     for file in files
-                                    do (setf (org-ai-on-project--file-chosen file) nil))
+                                    do (remhash (org-ai-on-project--file-file file) selected-files))
                            (org-ai-on-project--render state))
-                 "Select none"))
+                 "Select none")
+
+  (org-ai-on-project--render-total-selected state))
 
 
-(defun org-ai-on-project--render-file-without-modification (_state file)
+(defvar org-ai-on-project--in-region-file-select-active nil
+  "Used to avoid recursive calls to the checkbox notify function.")
+
+(defun foo ()
+  ""
+  (when (and (not org-ai-on-project--in-region-file-select-active) (region-active-p))
+    (let ((org-ai-on-project--in-region-file-select-active t)
+          (first-line (line-number-at-pos (region-beginning)))
+          (last-line (line-number-at-pos (region-end))))
+      (save-excursion
+        (goto-char (region-beginning))
+        (while (<= (line-number-at-pos (point)) last-line)
+          (beginning-of-line)
+          (widget-button-press (point)))))))
+
+(defun org-ai-on-project--render-file-without-modification (state file)
   "Render FILE without modification using _STATE.
 _STATE is `org-ai-on-project--state'.
 FILE is `org-ai-on-project--file'."
-  (let ((file-name (org-ai-on-project--file-file file))
-        (chosen (org-ai-on-project--file-chosen file)))
+  (let* ((file-name (org-ai-on-project--file-file file))
+         (selected (gethash file-name (org-ai-on-project--state-selected-files state))))
     (widget-create 'checkbox
                    :notify (lambda (&rest _ignore)
-                             (setf (org-ai-on-project--file-chosen file) (not chosen)))
-                   chosen)
+                             (foo)
+
+                             (if selected
+                                 (remhash file-name (org-ai-on-project--state-selected-files state))
+                               (puthash file-name file (org-ai-on-project--state-selected-files state)))
+                             (org-ai-on-project--render-total-selected-refresh state)
+                             (move-beginning-of-line 1)
+                             (next-line 1))
+                   selected)
     (widget-insert " ")
     (widget-create 'link
                    :button-prefix ""
@@ -753,9 +811,7 @@ requested) or we:
                                    org-ai-on-project-modify-with-diff-prompt
                                  org-ai-on-project-default-modify-prompt)
                              org-ai-on-project-default-request-prompt))
-        (files (cl-loop for file in (org-ai-on-project--state-files state)
-                        when (org-ai-on-project--file-chosen file)
-                        collect file)))
+        (files (hash-table-values (org-ai-on-project--state-selected-files state))))
 
     (unless files
       (error "No files selected"))
@@ -883,6 +939,7 @@ your prompt."
                                                   :modify-code t
                                                   :modify-with-diffs org-ai-on-project-modify-with-diffs
                                                   :file-search-pattern ".*"
+                                                  :selected-files (make-hash-table :test 'equal)
                                                   :prompt (if org-ai-on-project--last-state
                                                               (org-ai-on-project--state-prompt org-ai-on-project--last-state)
                                                             ""))))
