@@ -63,16 +63,14 @@ in the `auth-sources' file."
   :type 'string
   :group 'org-ai)
 
-(defcustom org-ai-default-chat-model "gpt-3.5-turbo"
+(defcustom org-ai-default-chat-model "gpt-4o-mini"
   "The default model to use for chat-gpt requests. See https://platform.openai.com/docs/models for other options."
   :type 'string
   :group 'org-ai)
 
-(defcustom org-ai-chat-models '("gpt-3.5-turbo"
-                                "gpt-3.5-turbo-16k"
+(defcustom org-ai-chat-models '("gpt-4o-mini"
                                 "gpt-4"
                                 "gpt-4-32k"
-                                "gpt-4-vision-preview"
                                 "gpt-4-turbo"
                                 "gpt-4o")
   "Alist of available chat models. See https://platform.openai.com/docs/models."
@@ -352,7 +350,7 @@ from the OpenAI API."
   (type (:type org-ai--response-type))
   payload)
 
-;; Her is an example for how a full sequence of OpenAI responses looks like:
+;; Here is an example for how a full sequence of OpenAI responses looks like:
 ;; '((id "chatcmpl-9hM1UJgWe4cWKcJKvoMBzzebOOzli" object "chat.completion.chunk" created 1720119788 model "gpt-4o-2024-05-13" system_fingerprint "fp_d576307f90" choices [(index 0 delta (role "assistant" content "") logprobs nil finish_reason nil)])
 ;;   (id "chatcmpl-9hM1UJgWe4cWKcJKvoMBzzebOOzli" object "chat.completion.chunk" created 1720119788 model "gpt-4o-2024-05-13" system_fingerprint "fp_d576307f90" choices [(index 0 delta (content "Hello") logprobs nil finish_reason nil)])
 ;;   (id "chatcmpl-9hM1UJgWe4cWKcJKvoMBzzebOOzli" object "chat.completion.chunk" created 1720119788 model "gpt-4o-2024-05-13" system_fingerprint "fp_d576307f90" choices [(index 0 delta (content ",") logprobs nil finish_reason nil)])
