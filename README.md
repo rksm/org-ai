@@ -147,7 +147,7 @@ This will result in an API payload like
       "content": "What will you eat today?"
     }
   ],
-  "model": "gpt-3.5-turbo",
+  "model": "gpt-4o-mini",
   "stream": true,
   "max_tokens": 250,
   "temperature": 1.2
@@ -203,7 +203,7 @@ Examples:
 :PROPERTIES:
 :SYS: You are a emacs expert. You can help me by answering my questions. You can also ask me questions to clarify my intention.
 :temperature: 0.5
-:model: gpt-3.5-turbo
+:model: gpt-4o-mini
 :END:
 
 ** Web programming via elisp
@@ -232,7 +232,7 @@ How to setup a webserver with http3 support?
 
 The following custom variables can be used to configure the chat:
 
-- `org-ai-default-chat-model` (default: `"gpt-3.5-turbo"`)
+- `org-ai-default-chat-model` (default: `"gpt-4o-mini"`)
 - `org-ai-default-max-tokens` How long the response should be. Currently cannot exceed 4096. If this value is too small an answer might be cut off (default: nil)
 - `org-ai-default-chat-system-prompt` How to "prime" the model. This is a prompt that is injected before the user's input. (default: `"You are a helpful assistant inside Emacs."`)
 - `org-ai-default-inject-sys-prompt-for-all-messages` Wether to repeat the system prompt for every user message. Sometimes the model "forgets" how it was primed. This can help remind it. (default: `nil`)
