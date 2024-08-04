@@ -2,6 +2,7 @@
 
 ;;; Code:
 
+;; TODO use file path or url at point as default
 (require 'org-ai-openai)
 
 (defcustom org-ai-image-query-model "gpt-4o-mini"
@@ -24,6 +25,7 @@ Calls CALLBACK with the response."
                                          ("messages" . [(("role" . "user")
                                                          ("content" . [((type . "text") (text . ,question))
                                                                        ,image-content]))])
+                                         ;; TODO use org-ai-default-max-tokens
                                          ("max_tokens" . 300)))))
     (url-retrieve
      org-ai-openai-image-query-endpoint
@@ -54,12 +56,14 @@ Calls CALLBACK with the response."
   "Handle the RESPONSE from OpenAI API."
   (let ((choices (cdr (assq 'choices response))))
     (if choices
+        ;; TODO put into current buffer, not message
         (message "OpenAI API response: %S" choices)
       (message "OpenAI API returned an unexpected response: %S" response))))
 
 (defun org-ai--get-user-input ()
   "Get input from the user."
   (interactive)
+  ;; TODO make file path or url nicer to use
   (list (read-string "Image file path or URL: ")
         (read-string "Question: ")))
 
@@ -69,6 +73,7 @@ Calls CALLBACK with the response."
   (interactive)
   (let* ((inputs (org-ai--get-user-input))
          (image-path-or-url (car inputs))
+         ;; TODO validate question has at least X chars
          (question (cadr inputs)))
     (if (string-match-p "^https?://" image-path-or-url)
         (org-ai--send-url-image-query image-path-or-url question #'org-ai--handle-openai-response)
