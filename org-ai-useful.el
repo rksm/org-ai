@@ -381,7 +381,7 @@ be guessed from the current major mode."
 
   (org-ai-with-input-or-spoken-text "How should the code be modified? " how
     (let ((text-prompt-fn (lambda (code) (format "
-In the following I will show you an instruction and then a code snippet. I want you to modify the code snippet based on the instruction. Only output the modified code. Do not include any explanation.
+In the following I will show you an instruction and then a code snippet. I want you to modify the code snippet based on the instruction. Only output the modified code. Do not include any explanation or backtick fences or language/syntax-highlighting identifiers in your response.
 
 Here is the instruction:
 %s
