@@ -25,8 +25,7 @@ Calls CALLBACK with the response."
                                          ("messages" . [(("role" . "user")
                                                          ("content" . [((type . "text") (text . ,question))
                                                                        ,image-content]))])
-                                         ;; TODO use org-ai-default-max-tokens
-                                         ("max_tokens" . 300)))))
+                                         ("max_tokens" . ,(or org-ai-default-max-tokens 300))))))
     (url-retrieve
      org-ai-openai-image-query-endpoint
      (lambda (_status)
