@@ -59,21 +59,29 @@ Calls CALLBACK with the response."
         (message "OpenAI API response: %S" choices)
       (message "OpenAI API returned an unexpected response: %S" response))))
 
-(defun org-ai--get-user-input ()
-  "Get input from the user."
-  (interactive)
+(defun org-ai--get-image-path-or-url ()
+  "Prompt the user for a non-empty image path or URL."
   ;; TODO make file path or url nicer to use
-  (list (read-string "Image file path or URL: ")
-        (read-string "Question: ")))
+  (let ((image-path-or-url ""))
+    (while (or (string-empty-p image-path-or-url)
+               (and (not (string-match-p "^https?://" image-path-or-url))
+                    (not (file-exists-p image-path-or-url))))
+      (setq image-path-or-url (read-string "Image file path or URL (must be non-empty): ")))
+    image-path-or-url))
+
+(defun org-ai--get-question ()
+  "Prompt the user for a non-empty question."
+  (let ((question ""))
+    (while (string-empty-p question)
+      (setq question (read-string "Question (must be non-empty): ")))
+    question))
 
 ;;;###autoload
 (defun org-ai-query-image ()
   "Query OpenAI API with a BASE64 encoded image path or URL and a QUESTION."
   (interactive)
-  (let* ((inputs (org-ai--get-user-input))
-         (image-path-or-url (car inputs))
-         ;; TODO validate question has at least X chars
-         (question (cadr inputs)))
+  (let ((image-path-or-url (org-ai--get-image-path-or-url))
+        (question (org-ai--get-question)))
     (if (string-match-p "^https?://" image-path-or-url)
         (org-ai--send-url-image-query image-path-or-url question #'org-ai--handle-openai-response)
       (let ((base64-image (with-temp-buffer
