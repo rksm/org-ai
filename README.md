@@ -425,6 +425,94 @@ Tell me some 3, simple ways to improve this dockerfile
 ```
 
 
+
+### Evil Integration
+
+If you use Evil mode in Emacs, `org-ai` provides convenient Evil Ex command bindings. By default, two commands are bound:
+
+- `:ar` - Asks a question about the selected range.
+- `:cr` - Asks how to refactor the selected range.
+
+These commands are customizable. To customize the defaults, you can set the following variables in your Emacs configuration:
+
+```elisp
+(setq org-ai-evil-cmd-ar "mycustomar")
+(setq org-ai-evil-cmd-cr "mycustomcr")
+```
+
+
+#### Usage Examples
+
+##### `:ar` - Ask Range
+The `:ar` command is for querying a range of lines of text directly in Ex mode, and it uses the underlying `org-ai-on-region` command. Here are examples of how to use it:
+
+1. **Using a Line Range**:
+   - `:1,10ar`: This will query the AI about lines 1 to 10 in the buffer.
+   
+   ```org
+   :1,10ar
+   ```
+
+2. **Using the Entire Buffer**:
+   - `:%ar`: This will query the AI about the entire buffer content.
+
+   ```org
+   :%ar
+   ```
+
+3. **Using Marks**:
+   - `'a,'bar`: This will query the AI about the text between marks `a` and `b`.
+
+   ```org
+   :'a,'bar
+   ```
+
+4. **Ask a Specific Question**:
+   - After issuing one of the above commands, you will be prompted with "What do you want to know?" For example, you can ask "Summarize this section."
+
+##### `:cr` - Change/Refactor Range
+The `:cr` command is for refactoring a range of lines of text directly in Ex mode, and it uses the underlying `org-ai-refactor-code` command. Here are examples of how to use it:
+
+1. **Using a Line Range**:
+   - `:1,10cr`: This will ask the AI how to refactor the code from lines 1 to 10.
+
+   ```org
+   :1,10cr
+   ```
+
+2. **Using the Entire Buffer**:
+   - `:%cr`: This will ask the AI how to refactor the entire buffer content.
+
+   ```org
+   :%cr
+   ```
+
+3. **Using Marks**:
+   - `'a,'bcr`: This will ask the AI how to refactor the text between marks `a` and `b`.
+
+   ```org
+   :'a,'bcr
+   ```
+
+4. **Specify Refactoring Instructions**:
+   - After issuing one of the above commands, you will be prompted with "How do you want to refactor the code?" You can specify instructions like "Optimize for performance" or "Refactor to use modern JavaScript syntax."
+
+### Summary of Commands and Usage
+
+- `:ar` - Queries a range of text:
+  - Example: `:1,10ar` (lines 1 to 10)
+  - Underlying Command: `org-ai-on-region`
+
+- `:cr` - Refactors a range of text:
+  - Example: `:1,10cr` (lines 1 to 10)
+  - Underlying Command: `org-ai-refactor-code`
+
+#### Evil Installation
+
+To ensure these Evil integrations are loaded correctly, `org-ai` checks if Evil mode is available before defining these commands. If you want to use these features, make sure Evil is installed and available.
+
+By default, `org-ai` will use the `ar` and `cr` bindings in Evil mode but these can be changed in the configuration to suit your preferences.
+
 ## Installation
 
 ### Melpa
