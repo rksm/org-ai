@@ -417,7 +417,7 @@ from the OpenAI API."
             (cl-loop for choice across choices
                      append (or (when-let ((role (plist-get (plist-get choice 'delta) 'role)))
                                   (list (make-org-ai--response :type 'role :payload role)))
-																(when-let ((role (plist-get (plist-get choice 'delta) 'content)))
+				(when-let ((role (plist-get (plist-get choice 'delta) 'content)))
                                   (list (make-org-ai--response :type 'text :payload role)))
                                 (when-let ((content (plist-get (plist-get choice 'delta) 'content)))
                                   (list (make-org-ai--response :type 'text :payload content)))
