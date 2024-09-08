@@ -368,7 +368,7 @@ from the OpenAI API."
 ;;   (type "message_delta" delta (stop_reason "end_turn" stop_sequence nil) usage (output_tokens 22))
 ;;   (type "message_stop"))
 (defun org-ai--normalize-response (response)
-  "This function normalizes JSON data received from OpenAI-style and Anthropic endpoints.
+  "This function normalizes JSON data received from OpenAI-style, Anthropic, and Perplexity endpoints.
 `RESPONSE' is one JSON message of the stream response."
 
   (if-let ((error-message (plist-get response 'error)))
@@ -394,13 +394,31 @@ from the OpenAI API."
           (list (make-org-ai--response :type 'stop :payload stop-reason))))
        ((string= response-type "message_stop") nil)
 
-       ;; not anthropic, try openai
+       ;; try perplexity.ai
+       ((and (plist-get response 'model) (string-prefix-p "llama-" (plist-get response 'model)))
+        (let ((choices (plist-get response 'choices)))
+          (when (and choices (> (length choices) 0))
+            (let* ((choice (aref choices 0))
+                   (message (plist-get choice 'message))
+                   (delta (plist-get choice 'delta))
+                   (role (or (plist-get delta 'role) (plist-get message 'role)))
+                   (content (or (plist-get delta 'content) (plist-get message 'content)))
+                   (finish-reason (plist-get choice 'finish_reason)))
+              (append
+               (when role
+                 (list (make-org-ai--response :type 'role :payload role)))
+               (when content
+                 (list (make-org-ai--response :type 'text :payload content)))
+               (when finish-reason
+                 (list (make-org-ai--response :type 'stop :payload finish-reason))))))))
+
+       ;; fallback to openai
        (t (let ((choices (plist-get response 'choices)))
             (cl-loop for choice across choices
                      append (or (when-let ((role (plist-get (plist-get choice 'delta) 'role)))
                                   (list (make-org-ai--response :type 'role :payload role)))
-                                (when-let ((role (plist-get (plist-get choice 'delta) 'content)))
-                                  (list (make-org-ai--response :type 'text :payload role)))
+                                (when-let ((content (plist-get (plist-get choice 'delta) 'content)))
+                                  (list (make-org-ai--response :type 'text :payload content)))
                                 (when-let ((finish-reason (plist-get choice 'finish_reason)))
                                   (list (make-org-ai--response :type 'stop :payload finish-reason)))))))))))
 
