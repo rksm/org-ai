@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.2] - 2024-10-15
+### Changed
+- Support for OpenAI o1-preview and o1-mini models. Set them as `:model o1-preview` parameter or via `(setq org-ai-default-chat-model "o1-mini")`.
+- [Fix for processing perplexity.ai responses](https://github.com/rksm/org-ai/pull/129). Thanks @lneely!
+- [evil integrations for Ex range commands](https://github.com/rksm/org-ai/pull/127). Thanks @tynesjo
+
 ## [0.5.1] - 2024-07-10
 ### Changed
 - improve org-ai-on-project file selection:
