@@ -237,6 +237,12 @@ For chat completion responses.")
 (defvar org-ai--current-request-callback nil
   "Internal var that stores the current request callback.")
 
+(defvar org-ai--current-request-is-streamed nil
+  "Whether we expect a streamed response or a single completion payload.")
+
+(defvar org-ai--current-progress-reporter nil
+  "progress-reporter for non-streamed responses to make them less boring.")
+
 (defvar org-ai-after-chat-insertion-hook nil
   "Hook that is called when a chat response is inserted.
 Note this is called for every stream response so it will typically
@@ -394,6 +400,7 @@ from the OpenAI API."
           (list (make-org-ai--response :type 'stop :payload stop-reason))))
        ((string= response-type "message_stop") nil)
 
+
        ;; try perplexity.ai
        ((and (plist-get response 'model) (string-prefix-p "llama-" (plist-get response 'model)))
         (let ((choices (plist-get response 'choices)))
@@ -412,7 +419,20 @@ from the OpenAI API."
                (when finish-reason
                  (list (make-org-ai--response :type 'stop :payload finish-reason))))))))
 
-       ;; fallback to openai
+       ;; single message e.g. from non-streamed completion
+       ((let ((choices (plist-get response 'choices)))
+          (and (= 1 (length choices))
+               (plist-get (aref choices 0) 'message)))
+        (let* ((choices (plist-get response 'choices))
+               (choice (aref choices 0))
+               (text (plist-get (plist-get choice 'message) 'content))
+               (role (plist-get (plist-get choice 'message) 'role))
+               (finish-reason (or (plist-get choice 'finish_reason) 'stop)))
+          (list (make-org-ai--response :type 'role :payload role)
+                (make-org-ai--response :type 'text :payload text)
+                (make-org-ai--response :type 'stop :payload finish-reason))))
+
+       ;; try openai streamed
        (t (let ((choices (plist-get response 'choices)))
             (cl-loop for choice across choices
                      append (or (when-let ((role (plist-get (plist-get choice 'delta) 'role)))
@@ -519,6 +539,7 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
   (setq org-ai--currently-inside-code-markers nil)
   (setq service (or (if (stringp service) (org-ai--read-service-name service) service)
                     org-ai-service))
+  (setq stream (org-ai--stream-supported service model))
 
   (let* ((url-request-extra-headers (org-ai--get-headers service))
          (url-request-method "POST")
@@ -532,25 +553,32 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
 					    :frequency-penalty frequency-penalty
 					    :presence-penalty presence-penalty
                                             :service service
-                                            :stream t)))
+                                            :stream stream)))
     (org-ai--check-model model endpoint)
 
     ;; (message "REQUEST %s %s" endpoint url-request-data)
 
+    (setq org-ai--current-request-is-streamed stream)
     (setq org-ai--current-request-callback callback)
+    (when (not stream) (org-ai--progress-reporter-until-request-done))
 
     (setq org-ai--current-request-buffer-for-stream
           (url-retrieve
            endpoint
            (lambda (_events)
+             (with-current-buffer org-ai--current-request-buffer-for-stream
+               (org-ai--url-request-on-change-function nil nil nil))
              (org-ai--maybe-show-openai-request-error org-ai--current-request-buffer-for-stream)
              (org-ai-reset-stream-state))))
 
     ;; (display-buffer-use-some-window org-ai--current-request-buffer-for-stream nil)
 
-    (unless (member 'org-ai--url-request-on-change-function after-change-functions)
+    (if stream
+        (unless (member 'org-ai--url-request-on-change-function after-change-functions)
+          (with-current-buffer org-ai--current-request-buffer-for-stream
+            (add-hook 'after-change-functions #'org-ai--url-request-on-change-function nil t)))
       (with-current-buffer org-ai--current-request-buffer-for-stream
-        (add-hook 'after-change-functions #'org-ai--url-request-on-change-function nil t)))
+        (remove-hook 'after-change-functions #'org-ai--url-request-on-change-function t)))
 
     org-ai--current-request-buffer-for-stream))
 
@@ -600,7 +628,8 @@ temperature of the distribution. `TOP-P' is the top-p value.
 `FREQUENCY-PENALTY' is the frequency penalty. `PRESENCE-PENALTY'
 is the presence penalty.
 `STREAM' is a boolean indicating whether to stream the response."
-  (let ((extra-system-prompt))
+  (let ((extra-system-prompt)
+        (max-completion-tokens))
 
     (when (eq service 'anthropic)
       (when (string-equal (plist-get (aref messages 0) :role) "system")
@@ -608,17 +637,27 @@ is the presence penalty.
         (cl-shiftf messages (cl-subseq messages 1)))
       (setq max-tokens (or max-tokens 4096)))
 
+    ;; o1 models currently does not support system prompt
+    (when (and (or (eq service 'openai) (eq service 'azure-openai))
+               (string-prefix-p "o1-" model))
+      (setq messages (cl-remove-if (lambda (msg) (string-equal (plist-get msg :role) "system")) messages))
+      ;; o1 does not support max-tokens
+      (when max-tokens
+        (setq max-tokens nil)
+        (setq max-completion-tokens (or max-tokens 128000))))
+
    (let* ((input (if messages `(messages . ,messages) `(prompt . ,prompt)))
           ;; TODO yet unsupported properties: n, stop, logit_bias, user
           (data (map-filter (lambda (x _) x)
                             `(,input
                               (model . ,model)
-                              ,@(when stream            `((stream . ,stream)))
-                              ,@(when max-tokens        `((max_tokens . ,max-tokens)))
-                              ,@(when temperature       `((temperature . ,temperature)))
-                              ,@(when top-p             `((top_p . ,top-p)))
-                              ,@(when frequency-penalty `((frequency_penalty . ,frequency-penalty)))
-                              ,@(when presence-penalty  `((presence_penalty . ,presence-penalty)))))))
+                              ,@(when stream                `((stream . ,stream)))
+                              ,@(when max-tokens            `((max_tokens . ,max-tokens)))
+                              ,@(when max-completion-tokens `((max-completion-tokens . ,max-completion-tokens)))
+                              ,@(when temperature           `((temperature . ,temperature)))
+                              ,@(when top-p                 `((top_p . ,top-p)))
+                              ,@(when frequency-penalty     `((frequency_penalty . ,frequency-penalty)))
+                              ,@(when presence-penalty      `((presence_penalty . ,presence-penalty)))))))
 
      (when extra-system-prompt
        (setq data (append data `((system . ,extra-system-prompt)))))
@@ -652,7 +691,28 @@ and the length in chars of the pre-change text replaced by that range."
             ;;                (list (buffer-substring-no-properties (point-min) (point-max))
             ;;                      (point)))))
 
-            (while (and (not errored) (search-forward "data: " nil t))
+            ;; handle completion (non-streamed) response of a single json object
+            (while (and (not org-ai--current-request-is-streamed)
+                        (not errored))
+              (let ((json-object-type 'plist)
+                    (json-key-type 'symbol)
+                    (json-array-type 'vector))
+                (condition-case _err
+                    (let ((data (json-read)))
+                      (when org-ai--current-request-callback
+                        (funcall org-ai--current-request-callback data)))
+                  (error
+                   (setq errored t))))
+              (progn
+                (when org-ai--current-request-callback
+                  (funcall org-ai--current-request-callback nil))
+                (org-ai-reset-stream-state)
+                (message "org-ai request done")))
+
+            ;; handle stream completion response, multiple json objects prefixed with "data: "
+            (while (and org-ai--current-request-is-streamed
+                        (not errored)
+                        (search-forward "data: " nil t))
               (let* ((line (buffer-substring-no-properties (point) (line-end-position))))
                 ;; (message "...found data: %s" line)
                 (if (string= line "[DONE]")
@@ -676,6 +736,13 @@ and the length in chars of the pre-change text replaced by that range."
                        (setq errored t)
                        (goto-char org-ai--url-buffer-last-position-marker)))))))))))))
 
+(defun org-ai--stream-supported (service model)
+  "Check if the stream is supported by the service and model.
+`SERVICE' is the service to use. `MODEL' is the model to use."
+  ;; stream not supported by openai o1 models
+  (not (and (or (eq service 'openai) (eq service 'azure-openai))
+            (string-prefix-p "o1-" model))))
+
 (defun org-ai-interrupt-current-request ()
   "Interrupt the current request."
   (interactive)
@@ -694,7 +761,45 @@ and the length in chars of the pre-change text replaced by that range."
       (setq org-ai--url-buffer-last-position-marker nil)))
   (setq org-ai--current-request-callback nil)
   (setq org-ai--url-buffer-last-position-marker nil)
-  (setq org-ai--current-chat-role nil))
+  (setq org-ai--current-chat-role nil)
+  (setq org-ai--current-request-is-streamed nil)
+  (when org-ai--current-progress-reporter
+    (progress-reporter-done org-ai--current-progress-reporter)
+    (setq org-ai--current-progress-reporter nil)))
+
+(defcustom org-ai--witty-messages
+  '("Pondering imponderables... Almost there!"
+    "`grep`ing the neural net for answers..."
+    "Fetching witty AI response... In the meantime, have you tried Vim? Just kidding!"
+    "Teaching AI the ways of the Lisp."
+    "Consulting the sacred parentheses."
+    "Hold tight! The AI is garbage collecting its thoughts."
+    "Fetching clever reply from `/dev/ai`."
+    "The AI is busy counting parentheses. Almost there!"
+    "Running in an infinite loop... Just kidding! Processing your request."
+    "The AI is stuck in a `(cl-labels ((loop () (loop))) (loop))`... Wait, no it's not.")
+  "Messages to entertain while waiting")
+
+(defun org-ai--progress-reporter-until-request-done ()
+  (when org-ai--current-progress-reporter
+    (progress-reporter-done org-ai--current-progress-reporter))
+
+  (setq org-ai--current-progress-reporter
+        (let ((msg (or
+                    (nth (random (length org-ai--witty-messages)) org-ai--witty-messages)
+                    "Waiting for a response")))
+          (make-progress-reporter msg)))
+
+  (let ((counter 0))
+    (run-with-idle-timer
+     0 nil
+     (lambda ()
+       (while org-ai--current-progress-reporter
+         (setq counter (1+ counter))
+         (progress-reporter-update org-ai--current-progress-reporter)
+         (sit-for 0.1))
+       (progress-reporter-done reporter)
+       (setq org-ai--current-progress-reporter nil)))))
 
 (defun org-ai-open-request-buffer ()
   "A debug helper that opens the url request buffer."
