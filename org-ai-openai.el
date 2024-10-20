@@ -740,7 +740,8 @@ and the length in chars of the pre-change text replaced by that range."
                           (set-marker org-ai--url-buffer-last-position-marker (point)))
                       (error
                        (setq errored t)
-                       (goto-char org-ai--url-buffer-last-position-marker)))))))))))))
+                       (when org-ai--url-buffer-last-position-marker
+                         (goto-char org-ai--url-buffer-last-position-marker))))))))))))))
 
 (defun org-ai--stream-supported (service model)
   "Check if the stream is supported by the service and model.

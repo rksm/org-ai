@@ -135,7 +135,8 @@ Will always return t if `org-ai-talk-confirm-speech-input' is nil."
     (let ((output-buffer (or output-buffer (current-buffer)))
           (start-pos-marker (point-marker)))
       (let* ((sys-input (if sys-prompt (format "[SYS]: %s\n" sys-prompt)))
-             (input (format "%s\n[ME]: %s" sys-input prompt)))
+             (input (format "%s\n[ME]: %s" sys-input prompt))
+             (callback-called nil))
         (with-current-buffer output-buffer
           (setq org-ai-prompt--last-insertion-marker (point-marker)))
         (org-ai-stream-request :messages (org-ai--collect-chat-messages input)
@@ -143,7 +144,8 @@ Will always return t if `org-ai-talk-confirm-speech-input' is nil."
                                :callback (lambda (response)
                                            (when (cl-some (lambda (ea) (eq 'stop (org-ai--response-type ea)))
                                                           (org-ai--insert-stream-response nil output-buffer response nil))
-                                             (when callback
+                                             (when (and callback (not callback-called))
+                                               (setq callback-called t)
                                                (with-current-buffer
                                                    output-buffer (funcall callback))))))))))
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.5.4] - 2024-10-20
+### Changed
+- fix prompting in `org-ai-refactor-code`
+
 ## [0.5.3] - 2024-10-20
 ### Changed
 - fix progress reporter for non-streamed responses (fixes completion for o1 models)

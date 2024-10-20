@@ -4,7 +4,7 @@
 
 ;; Author: Robert Krahn <robert@kra.hn>
 ;; URL: https://github.com/rksm/org-ai
-;; Version: 0.5.3
+;; Version: 0.5.4
 ;; Package-Requires: ((emacs "27.1") (websocket "1.15"))
 
 ;; This file is NOT part of GNU Emacs.
