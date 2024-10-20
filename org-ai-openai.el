@@ -246,6 +246,9 @@ For chat completion responses.")
 (defvar org-ai--current-progress-reporter nil
   "progress-reporter for non-streamed responses to make them less boring.")
 
+(defvar org-ai--current-progress-timer nil
+  "Timer for updating the progress reporter for non-streamed responses to make them less boring.")
+
 (defvar org-ai-after-chat-insertion-hook nil
   "Hook that is called when a chat response is inserted.
 Note this is called for every stream response so it will typically
@@ -766,9 +769,7 @@ and the length in chars of the pre-change text replaced by that range."
   (setq org-ai--url-buffer-last-position-marker nil)
   (setq org-ai--current-chat-role nil)
   (setq org-ai--current-request-is-streamed nil)
-  (when org-ai--current-progress-reporter
-    (progress-reporter-done org-ai--current-progress-reporter)
-    (setq org-ai--current-progress-reporter nil)))
+  (org-ai--progress-reporter-cancel))
 
 (defcustom org-ai--witty-messages
   '("Pondering imponderables... Almost there!"
@@ -784,25 +785,28 @@ and the length in chars of the pre-change text replaced by that range."
   "Messages to entertain while waiting")
 
 (defun org-ai--progress-reporter-until-request-done ()
-  (when org-ai--current-progress-reporter
-    (progress-reporter-done org-ai--current-progress-reporter))
-
+  (org-ai--progress-reporter-cancel)
   (setq org-ai--current-progress-reporter
         (let ((msg (or
                     (nth (random (length org-ai--witty-messages)) org-ai--witty-messages)
                     "Waiting for a response")))
           (make-progress-reporter msg)))
 
-  (let ((counter 0))
-    (run-with-idle-timer
-     0 nil
-     (lambda ()
-       (while org-ai--current-progress-reporter
-         (setq counter (1+ counter))
-         (progress-reporter-update org-ai--current-progress-reporter)
-         (sit-for 0.1))
-       (progress-reporter-done reporter)
-       (setq org-ai--current-progress-reporter nil)))))
+  (setq org-ai--current-progress-timer
+        (let ((counter 0)
+              (reporter org-ai--current-progress-reporter))
+          (run-with-timer
+           1.0 0.2
+           (lambda ()
+             (setq counter (1+ counter))
+             (progress-reporter-update reporter))))))
+
+(defun org-ai--progress-reporter-cancel ()
+  (when org-ai--current-progress-reporter
+    (progress-reporter-done org-ai--current-progress-reporter)
+    (setq org-ai--current-progress-reporter nil))
+  (when org-ai--current-progress-timer
+    (cancel-timer org-ai--current-progress-timer)))
 
 (defun org-ai-open-request-buffer ()
   "A debug helper that opens the url request buffer."
