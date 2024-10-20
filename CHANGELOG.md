@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.3] - 2024-10-20
+### Changed
+- fix progress reporter for non-streamed responses (fixes completion for o1 models)
+- Undo [evil integrations](https://github.com/rksm/org-ai/pull/127) due to [#133](https://github.com/rksm/org-ai/issues/133).
+
 ## [0.5.2] - 2024-10-15
 ### Changed
 - Support for OpenAI o1-preview and o1-mini models. Set them as `:model o1-preview` parameter or via `(setq org-ai-default-chat-model "o1-mini")`.
