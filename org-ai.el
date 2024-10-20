@@ -93,9 +93,6 @@
 (require 'org-ai-talk)
 (require 'org-ai-sd)
 (require 'org-ai-oobabooga)
-;; Conditionally load Evil integrations if Evil is present
-(when (featurep 'evil)
-  (require 'org-ai-evil-integrations))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
