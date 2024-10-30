@@ -60,13 +60,22 @@ Calls CALLBACK with the response."
 
 (defun org-ai--get-image-path-or-url ()
   "Prompt the user for a non-empty image path or URL."
-  ;; TODO ensure non-nil
   (let ((default (or (thing-at-point 'url)
-                     (thing-at-point 'filename))))
-    (read-string (if default
-                     (format "Enter image URL or file path (default %s): " default)
-                   "Enter image URL or file path: ")
-                 nil 'minibuffer-history default)))
+                     (thing-at-point 'filename)))
+        (input ""))
+    (while (string-empty-p input)
+      (setq input
+            (read-string (if default
+                             (format "Enter image URL or file path (default %s): " default)
+                           "Enter image URL or file path: ")
+                         nil 'minibuffer-history default))
+      (if (string-empty-p input)
+          (if default
+              (setq input default)
+            (progn
+              (message "Input cannot be empty.")
+              (sit-for 1)))))
+    input))
 
 (defun org-ai--get-question ()
   "Prompt the user for a non-empty question."
