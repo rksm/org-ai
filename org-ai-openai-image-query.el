@@ -2,6 +2,9 @@
 
 ;;; Code:
 
+;; TODO handle multiple images https://platform.openai.com/docs/guides/vision/multiple-image-inputs
+;; TODO compress images if larger https://platform.openai.com/docs/guides/vision/managing-images, https://platform.openai.com/docs/guides/vision/is-there-a-limit-to-the-size-of-the-image-i-can-upload
+;; TODO ensure file is png, jpeg, webp, or non-animated gif https://platform.openai.com/docs/guides/vision/what-type-of-files-can-i-upload
 (require 'org-ai-openai)
 (require 'org-ai-useful)
 
