@@ -3,6 +3,7 @@
 ;;; Code:
 
 (require 'org-ai-openai)
+(require 'org-ai-useful)
 
 (defcustom org-ai-image-query-model "gpt-4o-mini"
   "The model to use for image queries."
@@ -10,6 +11,17 @@
   :type '(choice (const :tag "gpt-4o-mini" "gpt-4o-mini")
           (const :tag "gpt-4o" "gpt-4o")
           (const :tag "gpt-4-turbo" "gpt-4-turbo")))
+
+(defcustom org-ai-query-image-file nil
+  "Optional file used to store the `org-ai-query-image' conversations in.
+If nil, a buffer with no file backing is used. If a file is
+specified, new conversations are appended to the file or
+function's output. Function should take no arguments and return a
+filename."
+  :group 'org-ai
+  :type '(choice (const :tag "No file" nil)
+          (file :tag "File")
+          (function :tag "Function")))
 
 (defvar org-ai-openai-image-query-endpoint "https://api.openai.com/v1/chat/completions"
   "Endpoint for querying images with OpenAI.")
@@ -52,11 +64,17 @@ Calls CALLBACK with the response."
 
 (defun org-ai--handle-openai-response (response)
   "Handle the RESPONSE from OpenAI API."
-  (let ((choices (cdr (assq 'choices response))))
-    (if choices
-        ;; TODO put into current buffer, not message
-        (message "OpenAI API response: %S" choices)
-      (message "OpenAI API returned an unexpected response: %S" response))))
+  (let* ((choices (alist-get 'choices response))
+         ;; Ensure choices is a vector and has at least one element
+         (choice (and (vectorp choices)
+                      (> (length choices) 0)
+                      (aref choices 0)))
+         (message_ (alist-get 'message choice))
+         (content (alist-get 'content message_))
+         (output-buffer (get-buffer-create (or org-ai-query-image-file "*org-ai-output*"))))
+    (if content
+        (org-ai-prompt--insert output-buffer content t)
+      (error "Content not found in the response"))))
 
 (defun org-ai--get-image-path-or-url ()
   "Prompt the user for a non-empty image path or URL."
