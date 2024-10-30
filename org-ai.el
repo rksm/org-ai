@@ -187,10 +187,10 @@ It's designed to \"do the right thing\":
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
-(defun org-ai-query-image-and-display (image-path question)
+(defun org-ai-query-image-and-display ()
   "Query OpenAI API with a BASE64 encoded IMAGE-PATH and a QUESTION, and display the result."
-  (interactive "fImage file path: \nsQuestion: ")
-  (org-ai-query-image image-path question))
+  (interactive)
+  (org-ai-query-image))
 
 (defvar org-ai-mode-map (make-sparse-keymap)
   "Keymap for `org-ai-mode'.")
