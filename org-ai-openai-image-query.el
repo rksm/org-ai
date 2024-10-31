@@ -65,19 +65,25 @@ Calls CALLBACK with the response."
      (image_url . (("url" . ,image-url))))
    question callback))
 
+(defun org-ai--extract-content-from-response (response)
+  "Extract content from OpenAI API RESPONSE.
+Returns the content string or signals an error if content is not found."
+  (let* ((choices (alist-get 'choices response))
+         (choice (and (vectorp choices)
+                     (> (length choices) 0)
+                     (aref choices 0)))
+         (message_ (alist-get 'message choice))
+         (content (alist-get 'content message_)))
+    (unless content
+      (error "Content not found in the response"))
+    content))
+
 (defun org-ai--handle-openai-response (response)
   "Handle the RESPONSE from OpenAI API."
-  (let* ((choices (alist-get 'choices response))
-         ;; Ensure choices is a vector and has at least one element
-         (choice (and (vectorp choices)
-                      (> (length choices) 0)
-                      (aref choices 0)))
-         (message_ (alist-get 'message choice))
-         (content (alist-get 'content message_))
+  (let* ((content (org-ai--extract-content-from-response response))
          (output-buffer (get-buffer-create (or org-ai-query-image-file "*org-ai-output*"))))
-    (if content
-        (org-ai-prompt--insert output-buffer content t)
-      (error "Content not found in the response"))))
+    (org-ai-prompt--insert output-buffer content t)
+    (pop-to-buffer output-buffer)))
 
 (defun org-ai--get-image-path-or-url ()
   "Prompt the user for a non-empty image path or URL."
