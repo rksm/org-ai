@@ -93,7 +93,7 @@
 (require 'org-ai-talk)
 (require 'org-ai-sd)
 (require 'org-ai-oobabooga)
-(require 'org-ai-openai-image-query) ; Add this line
+(require 'org-ai-openai-image-query)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
