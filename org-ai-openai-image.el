@@ -24,6 +24,11 @@
 
 (require 'org-ai-openai)
 
+(defcustom org-ai-save-image-as-attachment nil
+  "If set, images will be stored as attachments to current heading."
+  :group 'org-ai
+  :type 'bool)
+
 (defcustom org-ai-image-directory (expand-file-name "org-ai-images/" org-directory)
   "Directory where images are stored."
   :group 'org-ai
@@ -238,7 +243,14 @@ object."
                                              (forward-line)
                                              (when name
                                                (insert (format "#+NAME: %s%s\n" name (if (> n 0) (format "_%s" i) "") )))
-                                             (insert (format "[[file:%s]]\n" file))
+                                             (insert (org-link-make-string (format "%s:%s"
+                                                                                   (if org-ai-save-image-as-attachment "attachment" "file")
+                                                                                   (if org-ai-save-image-as-attachment (file-name-nondirectory file) file))))
+                                             (insert "\n")
+                                             (when org-ai-save-image-as-attachment
+                                               (org-attach-attach file nil 'mv)
+                                               (when prompt (org-attach-attach (string-replace ".png" ".txt" file) nil 'mv))
+                                               )
                                              (org-display-inline-images))))))))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -260,7 +272,12 @@ to the image."
                                                  (with-current-buffer buffer
                                                    (save-excursion
                                                      (move-end-of-line 1)
-                                                     (insert (format "\n\n[[file:%s]]\n" file))
+                                                     (insert (org-link-make-string (format "%s:%s"
+                                                                                           (if org-ai-save-image-as-attachment "attachment" "file")
+                                                                                           (if org-ai-save-image-as-attachment (file-name-nondirectory file) file))))
+                                                     (insert "\n")
+                                                     (when org-ai-save-image-as-attachment
+                                                       (org-attach-attach file nil 'mv))
                                                      (org-display-inline-images)))))))
 
 (cl-defun org-ai--image-variation-request (image-file-path &key n size callback)
