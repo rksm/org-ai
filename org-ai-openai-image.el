@@ -242,7 +242,7 @@ object."
                                              (goto-char contents-end)
                                              (forward-line)
                                              (when name
-                                               (insert (format "#+NAME: %s%s\n" name (if (> n 0) (format "_%s" i) "") )))
+                                               (insert (format "#+NAME: %s%s\n" name (if (> n 1) (format "_%s" i) "") )))
                                              (insert (org-link-make-string (format "%s:%s"
                                                                                    (if org-ai-save-image-as-attachment "attachment" "file")
                                                                                    (if org-ai-save-image-as-attachment (file-name-nondirectory file) file))))
