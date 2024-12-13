@@ -93,7 +93,7 @@ Also save the `PROMPT' to a file."
 Use `SIZE' to determine the file name. If `N' is given, append it
 to the file name."
   (let ((file-name (format "%s_%s_image%s.png"
-                           (format-time-string "%Y%m%d" (current-time))
+                           (format-time-string "%Y%m%d%H%M%S" (current-time))
                            size
                            (if n (format "_%s" n) ""))))
     (if (file-exists-p (expand-file-name file-name dir))
