@@ -87,22 +87,23 @@ for more information."
   "Save the image `DATA' to into a file. Use `SIZE' to determine the file name.
 Also save the `PROMPT' to a file."
   (make-directory org-ai-image-directory t)
-  (cl-loop for ea across (alist-get 'data data)
-           collect (let ((file-name (org-ai--make-up-new-image-file-name org-ai-image-directory size)))
-                     (when prompt (with-temp-file (string-replace ".png" ".txt" file-name) (insert prompt)))
-                     (org-ai--image-save-base64-payload (alist-get 'b64_json ea) file-name)
-                     file-name)))
+  (let ((timestamp (current-time)))
+    (cl-loop for ea across (alist-get 'data data)
+             collect (let* ((file-name (org-ai--make-up-new-image-file-name org-ai-image-directory size timestamp)))
+                       (when prompt (with-temp-file (string-replace ".png" ".txt" file-name) (insert prompt)))
+                       (org-ai--image-save-base64-payload (alist-get 'b64_json ea) file-name)
+                       file-name))))
 
-(defun org-ai--make-up-new-image-file-name (dir size &optional n)
+(defun org-ai--make-up-new-image-file-name (dir size timestamp &optional n)
   "Make up a new file name for an image. Use `DIR' as the directory.
-Use `SIZE' to determine the file name. If `N' is given, append it
+Use `SIZE' and `TIMESTAMP' to determine the file name. If `N' is given, append it
 to the file name."
   (let ((file-name (format "%s_%s_image%s.png"
-                           (format-time-string "%Y%m%d%H%M%S" (current-time))
+                           (format-time-string "%Y%m%d%H%M%S" timestamp)
                            size
                            (if n (format "_%s" n) ""))))
     (if (file-exists-p (expand-file-name file-name dir))
-        (org-ai--make-up-new-image-file-name dir size (1+ (or n 0)))
+        (org-ai--make-up-new-image-file-name dir size timestamp (1+ (or n 0)))
       (expand-file-name file-name dir))))
 
 (defun org-ai--validate-image-size (model size)
