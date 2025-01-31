@@ -616,8 +616,8 @@ STATE is `org-ai-on-project--state'."
 (defvar org-ai-on-project--in-region-file-select-active nil
   "Used to avoid recursive calls to the checkbox notify function.")
 
-(defun foo ()
-  ""
+(defun org-ai-on-project--mark-all-checkboxes ()
+  "Hacky way to mark all the checkboxes."
   (when (and (not org-ai-on-project--in-region-file-select-active) (region-active-p))
     (let ((org-ai-on-project--in-region-file-select-active t)
           (first-line (line-number-at-pos (region-beginning)))
@@ -636,7 +636,7 @@ FILE is `org-ai-on-project--file'."
          (selected (gethash file-name (org-ai-on-project--state-selected-files state))))
     (widget-create 'checkbox
                    :notify (lambda (&rest _ignore)
-                             (foo)
+                             (org-ai-on-project--mark-all-checkboxes)
 
                              (if selected
                                  (remhash file-name (org-ai-on-project--state-selected-files state))
