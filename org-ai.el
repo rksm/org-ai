@@ -93,6 +93,7 @@
 (require 'org-ai-talk)
 (require 'org-ai-sd)
 (require 'org-ai-oobabooga)
+(require 'org-ai-openai-image-query)
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
@@ -186,12 +187,18 @@ It's designed to \"do the right thing\":
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 
+(defun org-ai-query-image-and-display ()
+  "Query OpenAI API with a BASE64 encoded IMAGE-PATH and a QUESTION, and display the result."
+  (interactive)
+  (org-ai-query-image))
+
 (defvar org-ai-mode-map (make-sparse-keymap)
   "Keymap for `org-ai-mode'.")
 
 (let ((map org-ai-mode-map))
   (define-key map (kbd "C-c M-a v") 'org-ai-image-variation)
   (define-key map (kbd "C-c M-a $") 'org-ai-open-account-usage-page)
+  (define-key map (kbd "C-c M-a q") 'org-ai-query-image-and-display) ; Bind to C-c M-a q
   (define-key map (kbd "C-c M-a SPC") 'org-ai-mark-region-at-point)
   (define-key map (kbd "C-c DEL") 'org-ai-kill-region-at-point)
   (define-key map (kbd "C-c <backspace>") 'org-ai-kill-region-at-point)
