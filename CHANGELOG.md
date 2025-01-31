@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.5] - 2025-01-31
+### Added
+- Allow saving generated images as org attachements. Set `org-ai-save-image-as-attachment` to `t` to enable this behavior. Thanks @kpzart!
+- Proper support for these OpenAI models:
+    - o1
+    - o1-mini
+    - o3-mini
+    - chatgpt-4o-latest
+
 ## [0.5.4] - 2024-10-20
 ### Changed
 - fix prompting in `org-ai-refactor-code`
