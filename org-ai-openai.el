@@ -74,8 +74,11 @@ in the `auth-sources' file."
                                 "gpt-4-turbo"
                                 "gpt-4o"
                                 "gpt-3.5-turbo"
+                                "o1"
                                 "o1-preview"
-                                "o1-mini")
+                                "o1-mini"
+                                "o3-mini"
+                                "chatgpt-4o-latest")
   "Alist of available chat models. See https://platform.openai.com/docs/models."
   :type '(alist :key-type string :value-type string)
   :group 'org-ai)
@@ -645,7 +648,7 @@ is the presence penalty.
 
     ;; o1 models currently does not support system prompt
     (when (and (or (eq service 'openai) (eq service 'azure-openai))
-               (string-prefix-p "o1-" model))
+               (or (string-prefix-p "o1" model) (string-prefix-p "o3" model)))
       (setq messages (cl-remove-if (lambda (msg) (string-equal (plist-get msg :role) "system")) messages))
       ;; o1 does not support max-tokens
       (when max-tokens
@@ -748,7 +751,7 @@ and the length in chars of the pre-change text replaced by that range."
 `SERVICE' is the service to use. `MODEL' is the model to use."
   ;; stream not supported by openai o1 models
   (not (and (or (eq service 'openai) (eq service 'azure-openai))
-            (string-prefix-p "o1-" model))))
+            (or (string-prefix-p "o1" model) (string-prefix-p "o3" model)))))
 
 (defun org-ai-interrupt-current-request ()
   "Interrupt the current request."
