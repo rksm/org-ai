@@ -24,6 +24,11 @@
 
 (require 'org-ai-openai)
 
+(defcustom org-ai-save-image-as-attachment nil
+  "If set, images will be stored as attachments to current heading."
+  :group 'org-ai
+  :type 'bool)
+
 (defcustom org-ai-image-directory (expand-file-name "org-ai-images/" org-directory)
   "Directory where images are stored."
   :group 'org-ai
@@ -82,22 +87,23 @@ for more information."
   "Save the image `DATA' to into a file. Use `SIZE' to determine the file name.
 Also save the `PROMPT' to a file."
   (make-directory org-ai-image-directory t)
-  (cl-loop for ea across (alist-get 'data data)
-           collect (let ((file-name (org-ai--make-up-new-image-file-name org-ai-image-directory size)))
-                     (when prompt (with-temp-file (string-replace ".png" ".txt" file-name) (insert prompt)))
-                     (org-ai--image-save-base64-payload (alist-get 'b64_json ea) file-name)
-                     file-name)))
+  (let ((timestamp (current-time)))
+    (cl-loop for ea across (alist-get 'data data)
+             collect (let* ((file-name (org-ai--make-up-new-image-file-name org-ai-image-directory size timestamp)))
+                       (when prompt (with-temp-file (string-replace ".png" ".txt" file-name) (insert prompt)))
+                       (org-ai--image-save-base64-payload (alist-get 'b64_json ea) file-name)
+                       file-name))))
 
-(defun org-ai--make-up-new-image-file-name (dir size &optional n)
+(defun org-ai--make-up-new-image-file-name (dir size timestamp &optional n)
   "Make up a new file name for an image. Use `DIR' as the directory.
-Use `SIZE' to determine the file name. If `N' is given, append it
+Use `SIZE' and `TIMESTAMP' to determine the file name. If `N' is given, append it
 to the file name."
   (let ((file-name (format "%s_%s_image%s.png"
-                           (format-time-string "%Y%m%d" (current-time))
+                           (format-time-string "%Y%m%d%H%M%S" timestamp)
                            size
                            (if n (format "_%s" n) ""))))
     (if (file-exists-p (expand-file-name file-name dir))
-        (org-ai--make-up-new-image-file-name dir size (1+ (or n 0)))
+        (org-ai--make-up-new-image-file-name dir size timestamp (1+ (or n 0)))
       (expand-file-name file-name dir))))
 
 (defun org-ai--validate-image-size (model size)
@@ -237,8 +243,15 @@ object."
                                              (goto-char contents-end)
                                              (forward-line)
                                              (when name
-                                               (insert (format "#+NAME: %s%s\n" name (if (> n 0) (format "_%s" i) "") )))
-                                             (insert (format "[[file:%s]]\n" file))
+                                               (insert (format "#+NAME: %s%s\n" name (if (> n 1) (format "_%s" i) "") )))
+                                             (insert (org-link-make-string (format "%s:%s"
+                                                                                   (if org-ai-save-image-as-attachment "attachment" "file")
+                                                                                   (if org-ai-save-image-as-attachment (file-name-nondirectory file) file))))
+                                             (insert "\n")
+                                             (when org-ai-save-image-as-attachment
+                                               (org-attach-attach file nil 'mv)
+                                               (when prompt (org-attach-attach (string-replace ".png" ".txt" file) nil 'mv))
+                                               )
                                              (org-display-inline-images))))))))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
@@ -260,7 +273,12 @@ to the image."
                                                  (with-current-buffer buffer
                                                    (save-excursion
                                                      (move-end-of-line 1)
-                                                     (insert (format "\n\n[[file:%s]]\n" file))
+                                                     (insert (org-link-make-string (format "%s:%s"
+                                                                                           (if org-ai-save-image-as-attachment "attachment" "file")
+                                                                                           (if org-ai-save-image-as-attachment (file-name-nondirectory file) file))))
+                                                     (insert "\n")
+                                                     (when org-ai-save-image-as-attachment
+                                                       (org-attach-attach file nil 'mv))
                                                      (org-display-inline-images)))))))
 
 (cl-defun org-ai--image-variation-request (image-file-path &key n size callback)
