@@ -24,6 +24,7 @@
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; snippet helpers
+(require 'yasnippet)
 (defvar yas-snippet-dirs)
 
 (defvar org-ai-output-mode-map
@@ -39,18 +40,44 @@
   :group 'org-ai
   (read-only-mode 1))
 
-;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+(defcustom org-ai-snippet-regex "org-ai"
+  "The regex to filter snippets from org-mode yasnippets."
+  :type 'string
+  :group 'org-ai)
 
-(defun org-ai-install-yasnippets ()
-  "Installs org-ai snippets."
-  (interactive)
+;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+(defun org-ai-load-snippets ()
+  "Load snippets in \"snippets/\" directory in this library to yasnippet collection"
   (let ((snippet-dir (expand-file-name "snippets/"
                                        (file-name-directory (locate-library "org-ai")))))
     (unless (boundp 'yas-snippet-dirs)
       (setq yas-snippet-dirs nil))
     (add-to-list 'yas-snippet-dirs snippet-dir t)
     (when (fboundp 'yas-load-directory)
-      (yas-load-directory snippet-dir))))
+      (yas-load-directory snippet-dir)))
+  )
+
+(defun org-ai-install-yasnippet ()
+  "Choose one from the org-ai snippets,
+which filter from org-mode yasnippets base on org-ai-snippet-regex
+And insert it to current location"
+  (interactive)
+  (setq yas--condition-cache-timestamp (current-time))
+  (let* ((filtered-templates (seq-filter (lambda (template)
+               (string-match-p org-ai-snippet-regex (yas--template-name template)))
+             (yas--all-templates (yas--get-snippet-tables 'org-mode )))
+                            )
+         (current-templates (yas--prompt-for-template filtered-templates))
+         (where (if (region-active-p)
+                    (cons (region-beginning) (region-end))
+                  (cons (point) (point)))))
+
+    (if current-templates
+        (yas-expand-snippet current-templates (car where) (cdr where))
+      (yas--message 1 "No snippets can be inserted here.")
+      )
+    )
+  )
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 ;; just prompt
