@@ -29,6 +29,9 @@
 (when (and (boundp 'org-protecting-blocks) (listp org-protecting-blocks))
   (add-to-list 'org-protecting-blocks "ai"))
 
+(when (boundp 'org-structure-template-alist)
+  (add-to-list 'org-structure-template-alist '("A" . "ai")))
+
 ;; `org-element-with-disabled-cache' is not available pre org-mode 9.6.6, i.e.
 ;; emacs 28 does not ship with it
 (defmacro org-ai--org-element-with-disabled-cache (&rest body)
