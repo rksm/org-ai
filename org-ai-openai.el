@@ -136,11 +136,12 @@ messages."
   (intern-soft name))
 
 (defcustom org-ai-service 'openai
-  "Service to use. Either openai or azure-openai."
+  "Service to use."
   :type '(choice (const :tag "OpenAI" openai)
                  (const :tag "Azure-OpenAI" azure-openai)
                  (const :tag "perplexity.ai" perplexity.ai)
-                 (const :tag "anthropic" anthropic))
+                 (const :tag "anthropic" anthropic)
+                 (const :tag "DeepSeek" deepseek))
   :group 'org-ai)
 
 (defvar org-ai-openai-chat-endpoint "https://api.openai.com/v1/chat/completions")
@@ -188,6 +189,7 @@ Either from `org-ai-openai-api-token' or from auth-source."
   (let* ((service (or service org-ai-service))
          (endpoint (pcase service
                      ('openai "api.openai.com")
+                     ('deepseek "api.deepseek.com")
                      ('perplexity.ai "api.perplexity.ai")
                      ('anthropic "api.anthropic.com")
                      ('azure-openai (strip-api-url org-ai-azure-openai-api-base)))))
@@ -214,6 +216,8 @@ whether messages are provided."
 	      (if messages "/chat" "") org-ai-azure-openai-api-version))
      ((eq service 'perplexity.ai)
       "https://api.perplexity.ai/chat/completions")
+     ((eq service 'deepseek)
+      "https://api.deepseek.com/v1/chat/completions")
      ((eq service 'anthropic)
       "https://api.anthropic.com/v1/messages")
      (t
@@ -269,6 +273,9 @@ only contain fragments.")
 
 (defvar org-ai--currently-inside-code-markers nil)
 (make-variable-buffer-local 'org-ai--currently-inside-code-markers)
+
+(defvar org-ai--currently-reasoning nil)
+(make-variable-buffer-local 'org-ai--currently-reasoning)
 
 (defvar org-ai--url-buffer-last-position-marker nil
   "Local buffer var to store last read position.")
@@ -441,17 +448,27 @@ from the OpenAI API."
                 (make-org-ai--response :type 'text :payload text)
                 (make-org-ai--response :type 'stop :payload finish-reason))))
 
-       ;; try openai streamed
+       ;; try openai & deepseek streamed
        (t (let ((choices (plist-get response 'choices)))
             (cl-loop for choice across choices
-                     append (or (when-let ((role (plist-get (plist-get choice 'delta) 'role)))
-                                  (list (make-org-ai--response :type 'role :payload role)))
-				(when-let ((role (plist-get (plist-get choice 'delta) 'content)))
-                                  (list (make-org-ai--response :type 'text :payload role)))
-                                (when-let ((content (plist-get (plist-get choice 'delta) 'content)))
-                                  (list (make-org-ai--response :type 'text :payload content)))
-                                (when-let ((finish-reason (plist-get choice 'finish_reason)))
-                                  (list (make-org-ai--response :type 'stop :payload finish-reason)))))))))))
+                     append (let ((delta (plist-get choice 'delta)))
+                              (or (when-let ((role (plist-get delta 'role)))
+                                    (list (make-org-ai--response :type 'role :payload
+                                            (if (and (string= "assistant" role)
+                                                     (plist-get delta 'reasoning_content))
+                                                "assistant_reason"
+                                              role))))
+                                  (when-let ((finish-reason (plist-get choice 'finish_reason)))
+                                    (list (make-org-ai--response :type 'stop :payload finish-reason)))
+                                  (when-let ((content (plist-get delta 'reasoning_content)))
+                                    (unless org-ai--currently-reasoning
+                                      (setq org-ai--currently-reasoning t))
+                                    (list (make-org-ai--response :type 'text :payload content)))
+                                  (when-let ((content (plist-get delta 'content)))
+                                    `(,@(when org-ai--currently-reasoning
+                                          (setq org-ai--currently-reasoning nil)
+                                          (list (make-org-ai--response :type 'role :payload "assistant")))
+                                      ,(make-org-ai--response :type 'text :payload content))))))))))))
 
 (defun org-ai--insert-stream-response (context buffer &optional response insert-role)
   "`RESPONSE' is one JSON message of the stream response.
@@ -487,6 +504,8 @@ the response into."
                                    (setq org-ai--current-chat-role role)
                                    (let ((role (and insert-role (org-ai--response-payload response))))
                                      (cond
+                                      ((string= role "assistant_reason")
+                                       (insert "\n[AI_REASON]: "))
                                       ((string= role "assistant")
                                        (insert "\n[AI]: "))
                                       ((string= role "user")
