@@ -150,6 +150,7 @@ messages."
 `MODEL' is the model name."
   (cond
    ((string-prefix-p "gpt-" model) 'openai)
+   ((string-prefix-p "chatgpt-" model) 'openai)
    ((string-prefix-p "o1" model) 'openai)
    ((string-prefix-p "o3" model) 'openai)
    ((string-prefix-p "o4" model) 'openai)
@@ -817,7 +818,8 @@ and the length in chars of the pre-change text replaced by that range."
 `SERVICE' is the service to use. `MODEL' is the model to use."
   ;; stream not supported by openai o1 models
   (not (and (or (eq service 'openai) (eq service 'azure-openai))
-            (or (string-prefix-p "o1" model) (string-prefix-p "o3" model)))))
+            (or
+             (string-prefix-p "o1-pro" model)))))
 
 (defun org-ai-interrupt-current-request ()
   "Interrupt the current request."

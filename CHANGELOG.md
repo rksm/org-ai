@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.6] - 2025-04-19
+### Added
+- Google / gemini support
+- Extend list of `org-ai-chat-models`
+- Add ai block to org-structure-template-alist [#148](https://github.com/rksm/org-ai/pull/148) (thanks @isamert!)
+- Add support for deepseek-chat and deepseek-reasoner models [#147](https://github.com/rksm/org-ai/pull/147) (once again thank you @isamert!)
+
+### Changed
+- Streaming is now support for o1 and o3
+- Fix marking functions [#145](https://github.com/rksm/org-ai/pull/145) (thanks @togakangaroo!)
+
 ## [0.5.5] - 2025-01-31
 ### Added
 - Allow saving generated images as org attachements. Set `org-ai-save-image-as-attachment` to `t` to enable this behavior. Thanks @kpzart!
