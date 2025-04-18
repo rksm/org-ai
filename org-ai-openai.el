@@ -155,6 +155,7 @@ messages."
    ((string-prefix-p "o4" model) 'openai)
    ((string-prefix-p "claude" model) 'anthropic)
    ((string-prefix-p "gemini" model) 'google)
+   ((string-prefix-p "deepseek" model) 'deepseek)
    (t nil)))
 
 (defcustom org-ai-service 'openai
@@ -491,24 +492,27 @@ from the OpenAI API."
        ;; try openai, deepseek, gemini streamed
        (t (let ((choices (plist-get response 'choices)))
             (cl-loop for choice across choices
-                     append (let ((role (when-let ((role (plist-get delta 'role)))
-                                          (if (and (string= "assistant" role)
-                                                   (plist-get delta 'reasoning_content))
-                                              "assistant_reason"
-                                            role)))
-                                  (content (plist-get (plist-get choice 'delta) 'content))
-                                  (reasoning-content (plist-get delta 'reasoning_content))
-                                  (finish-reason (plist-get choice 'finish_reason))
-                                  (result nil))
+                     append (let* ((delta (plist-get choice 'delta))
+                                   (role (when-let ((role (plist-get delta 'role)))
+                                           (if (and (string= "assistant" role)
+                                                    (plist-get delta 'reasoning_content))
+                                               "assistant_reason"
+                                             role)))
+                                   (content (plist-get (plist-get choice 'delta) 'content))
+                                   (reasoning-content (plist-get delta 'reasoning_content))
+                                   (finish-reason (plist-get choice 'finish_reason))
+                                   (result nil))
                               (when finish-reason
                                 (push (make-org-ai--response :type 'stop :payload finish-reason) result))
                               (when reasoning-content
                                 (setq org-ai--currently-reasoning t)
-                                (list (make-org-ai--response :type 'text :payload reasoning-content)))
-                              (when content
-                                (setq org-ai--currently-reasoning nil)
-                                (push (make-org-ai--response :type 'text :payload content) result))
-                              (when  role
+                                (push (make-org-ai--response :type 'text :payload reasoning-content) result))
+                              (when (and content (> (length content) 0))
+                                (push (make-org-ai--response :type 'text :payload content) result)
+                                (when org-ai--currently-reasoning
+                                  (setq org-ai--currently-reasoning nil)
+                                  (push (make-org-ai--response :type 'role :payload "assistant") result)))
+                              (when role
                                 (push (make-org-ai--response :type 'role :payload role) result))
                               result))))))))
 
@@ -886,7 +890,8 @@ and the length in chars of the pre-change text replaced by that range."
   (let ((model (completing-read "Model: "
                                 (append org-ai-chat-models
                                         '("claude-3-opus-latest" "claude-3-5-sonnet-latest" "claude-3-7-sonnet-latest"
-                                          "gemini-2.5-pro-preview-03-25" "gemini-2.5-flash-preview-04-17" "gemini-2.0-flash" "gemini-2.0-pro-exp"))
+                                          "gemini-2.5-pro-preview-03-25" "gemini-2.5-flash-preview-04-17" "gemini-2.0-flash" "gemini-2.0-pro-exp"
+                                          "deepseek-chat" "deepseek-reasoner"))
                                 nil t)))
     (setq org-ai-default-chat-model model)))
 
