@@ -73,11 +73,21 @@ in the `auth-sources' file."
                                 "gpt-4-32k"
                                 "gpt-4-turbo"
                                 "gpt-4o"
+                                "gpt-4o-mini"
+                                "gpt-4o-realtime-preview"
+                                "gpt-4o-search-preview"
+                                "gpt-4o-mini-search-preview"
+                                "gpt-4.1"
+                                "gpt-4.1-nano"
+                                "gpt-4.1-mini"
                                 "gpt-3.5-turbo"
                                 "o1"
+                                "o1-pro"
                                 "o1-preview"
                                 "o1-mini"
+                                "o3"
                                 "o3-mini"
+                                "o4-mini"
                                 "chatgpt-4o-latest")
   "Alist of available chat models. See https://platform.openai.com/docs/models."
   :type '(alist :key-type string :value-type string)
@@ -135,18 +145,33 @@ messages."
   "Map a service name such as 'openai' to a valid `org-ai-service' symbol."
   (intern-soft name))
 
+(defun org-ai--service-of-model (model)
+  "Return the service of the model.
+`MODEL' is the model name."
+  (cond
+   ((string-prefix-p "gpt-" model) 'openai)
+   ((string-prefix-p "o1" model) 'openai)
+   ((string-prefix-p "o3" model) 'openai)
+   ((string-prefix-p "o4" model) 'openai)
+   ((string-prefix-p "claude" model) 'anthropic)
+   ((string-prefix-p "gemini" model) 'google)
+   (t nil)))
+
 (defcustom org-ai-service 'openai
   "Service to use."
   :type '(choice (const :tag "OpenAI" openai)
                  (const :tag "Azure-OpenAI" azure-openai)
                  (const :tag "perplexity.ai" perplexity.ai)
                  (const :tag "anthropic" anthropic)
-                 (const :tag "DeepSeek" deepseek))
+                 (const :tag "DeepSeek" deepseek)
+                 (const :tag "google" google))
   :group 'org-ai)
 
 (defvar org-ai-openai-chat-endpoint "https://api.openai.com/v1/chat/completions")
 
 (defvar org-ai-openai-completion-endpoint "https://api.openai.com/v1/completions")
+
+(defvar org-ai-google-chat-endpoint "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")
 
 ;; Azure-Openai specific variables
 
@@ -192,6 +217,7 @@ Either from `org-ai-openai-api-token' or from auth-source."
                      ('deepseek "api.deepseek.com")
                      ('perplexity.ai "api.perplexity.ai")
                      ('anthropic "api.anthropic.com")
+                     ('google "generativelanguage.googleapis.com")
                      ('azure-openai (strip-api-url org-ai-azure-openai-api-base)))))
     (or (auth-source-pick-first-password :host endpoint :user "org-ai")
         (auth-source-pick-first-password :host endpoint :login "org-ai"))))
@@ -220,6 +246,8 @@ whether messages are provided."
       "https://api.deepseek.com/v1/chat/completions")
      ((eq service 'anthropic)
       "https://api.anthropic.com/v1/messages")
+     ((eq service 'google)
+      org-ai-google-chat-endpoint)
      (t
       (if messages org-ai-openai-chat-endpoint org-ai-openai-completion-endpoint)))))
 
@@ -233,6 +261,9 @@ whether messages are provided."
         ((eq service 'anthropic)
          `(("x-api-key" . ,(org-ai--openai-get-token service))
            ("anthropic-version" . ,org-ai-anthropic-api-version)))
+        ((eq service 'google)
+         `(("Accept-Encoding" . "identity")
+           ("Authorization" . ,(encode-coding-string (string-join `("Bearer" ,(org-ai--openai-get-token service)) " ") 'utf-8))))
         (t
          `(("Authorization" . ,(encode-coding-string (string-join `("Bearer" ,(org-ai--openai-get-token service)) " ") 'utf-8))))))))
 
@@ -389,6 +420,15 @@ from the OpenAI API."
 ;;   (type "content_block_stop" index 0)
 ;;   (type "message_delta" delta (stop_reason "end_turn" stop_sequence nil) usage (output_tokens 22))
 ;;   (type "message_stop"))
+;;
+;; and Google
+;; '((created 1745008491
+;;    model "gemini-2.5-pro-preview-03-25"
+;;    object "chat.completion.chunk"
+;;    choices [(delta (content "Hello Robert! How can I help you today?"
+;;                     role "assistant")
+;;              finish_reason "stop"
+;;              index 0)]))
 (defun org-ai--normalize-response (response)
   "This function normalizes JSON data received from OpenAI-style, Anthropic, and Perplexity endpoints.
 `RESPONSE' is one JSON message of the stream response."
@@ -448,27 +488,29 @@ from the OpenAI API."
                 (make-org-ai--response :type 'text :payload text)
                 (make-org-ai--response :type 'stop :payload finish-reason))))
 
-       ;; try openai & deepseek streamed
+       ;; try openai, deepseek, gemini streamed
        (t (let ((choices (plist-get response 'choices)))
             (cl-loop for choice across choices
-                     append (let ((delta (plist-get choice 'delta)))
-                              (or (when-let ((role (plist-get delta 'role)))
-                                    (list (make-org-ai--response :type 'role :payload
-                                            (if (and (string= "assistant" role)
-                                                     (plist-get delta 'reasoning_content))
-                                                "assistant_reason"
-                                              role))))
-                                  (when-let ((finish-reason (plist-get choice 'finish_reason)))
-                                    (list (make-org-ai--response :type 'stop :payload finish-reason)))
-                                  (when-let ((content (plist-get delta 'reasoning_content)))
-                                    (unless org-ai--currently-reasoning
-                                      (setq org-ai--currently-reasoning t))
-                                    (list (make-org-ai--response :type 'text :payload content)))
-                                  (when-let ((content (plist-get delta 'content)))
-                                    `(,@(when org-ai--currently-reasoning
-                                          (setq org-ai--currently-reasoning nil)
-                                          (list (make-org-ai--response :type 'role :payload "assistant")))
-                                      ,(make-org-ai--response :type 'text :payload content))))))))))))
+                     append (let ((role (when-let ((role (plist-get delta 'role)))
+                                          (if (and (string= "assistant" role)
+                                                   (plist-get delta 'reasoning_content))
+                                              "assistant_reason"
+                                            role)))
+                                  (content (plist-get (plist-get choice 'delta) 'content))
+                                  (reasoning-content (plist-get delta 'reasoning_content))
+                                  (finish-reason (plist-get choice 'finish_reason))
+                                  (result nil))
+                              (when finish-reason
+                                (push (make-org-ai--response :type 'stop :payload finish-reason) result))
+                              (when reasoning-content
+                                (setq org-ai--currently-reasoning t)
+                                (list (make-org-ai--response :type 'text :payload reasoning-content)))
+                              (when content
+                                (setq org-ai--currently-reasoning nil)
+                                (push (make-org-ai--response :type 'text :payload content) result))
+                              (when  role
+                                (push (make-org-ai--response :type 'role :payload role) result))
+                              result))))))))
 
 (defun org-ai--insert-stream-response (context buffer &optional response insert-role)
   "`RESPONSE' is one JSON message of the stream response.
@@ -566,6 +608,7 @@ penalty. `PRESENCE-PENALTY' is the presence penalty."
   (setq org-ai--debug-data-raw nil)
   (setq org-ai--currently-inside-code-markers nil)
   (setq service (or (if (stringp service) (org-ai--read-service-name service) service)
+                    (org-ai--service-of-model model)
                     org-ai-service))
   (setq stream (org-ai--stream-supported service model))
 
@@ -840,7 +883,11 @@ and the length in chars of the pre-change text replaced by that range."
 (defun org-ai-switch-chat-model ()
   "Change `org-ai-default-chat-model'."
   (interactive)
-  (let ((model (completing-read "Model: " org-ai-chat-models nil t)))
+  (let ((model (completing-read "Model: "
+                                (append org-ai-chat-models
+                                        '("claude-3-opus-latest" "claude-3-5-sonnet-latest" "claude-3-7-sonnet-latest"
+                                          "gemini-2.5-pro-preview-03-25" "gemini-2.5-flash-preview-04-17" "gemini-2.0-flash" "gemini-2.0-pro-exp"))
+                                nil t)))
     (setq org-ai-default-chat-model model)))
 
 ;; -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
