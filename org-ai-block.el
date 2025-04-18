@@ -111,7 +111,7 @@ pairs from `org-ai-get-block-info'."
                       (save-excursion
                         (goto-char content-start)
                         (cl-loop with result
-                                 while (search-forward-regexp "\\[SYS\\]:\\|\\[ME\\]:\\|\\[AI\\]:" content-end t)
+                                 while (search-forward-regexp "\\[SYS\\]:\\|\\[ME\\]:\\|\\[AI\\]:\\|\\[AI_REASON\\]:" content-end t)
                                  do (push (match-beginning 0) result)
                                  finally return result)))))
         (if result
@@ -154,7 +154,7 @@ The numeric `ARG' can be used for killing the last n."
                   (kill-region end start)))))
 
 (defun org-ai--collect-chat-messages (content-string &optional default-system-prompt persistant-sys-prompts)
-  "Takes `CONTENT-STRING' and splits it by [SYS]:, [ME]: and [AI]: markers.
+  "Takes `CONTENT-STRING' and splits it by [SYS]:, [ME]:, [AI]: and [AI_REASON]: markers.
 If `PERSISTANT-SYS-PROMPTS' is non-nil, [SYS] prompts are
 intercalated. The [SYS] prompt used is either
 `DEFAULT-SYSTEM-PROMPT' or the first [SYS] prompt found in
@@ -165,7 +165,7 @@ intercalated. The [SYS] prompt used is either
     (goto-char (point-min))
 
     (let* (;; collect all positions before [ME]: and [AI]:
-           (sections (cl-loop while (search-forward-regexp "\\[SYS\\]:\\|\\[ME\\]:\\|\\[AI\\]:" nil t)
+           (sections (cl-loop while (search-forward-regexp "\\[SYS\\]:\\|\\[ME\\]:\\|\\[AI\\]:\\|\\[AI_REASON\\]:" nil t)
                               collect (save-excursion
                                         (goto-char (match-beginning 0))
                                         (point))))
@@ -184,13 +184,17 @@ intercalated. The [SYS] prompt used is either
            (parts (if (and
                        (not (string-prefix-p "[SYS]:" (car parts)))
                        (not (string-prefix-p "[ME]:" (car parts)))
-                       (not (string-prefix-p "[AI]:" (car parts))))
+                       (not (string-prefix-p "[AI]:" (car parts)))
+                       (not (string-prefix-p "[AI_REASON]:" (car parts))))
                       (progn (setf (car parts) (concat "[ME]: " (car parts)))
                              parts)
                     parts))
 
            ;; create (:role :content) list
            (messages (cl-loop for part in parts
+                              ;; Filter out reasoning parts as including them will cause 404
+                              ;; https://api-docs.deepseek.com/guides/reasoning_model#multi-round-conversation
+                              if (not (string= "[AI_REASON]" (car (split-string part ":"))))
                               collect (cl-destructuring-bind (type &rest content) (split-string part ":")
                                         (let ((type (string-trim type))
                                               (content (string-trim (string-join content ":"))))
