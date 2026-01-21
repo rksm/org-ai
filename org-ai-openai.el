@@ -732,12 +732,12 @@ is the presence penalty.
 
     ;; o1 models currently does not support system prompt
     (when (and (or (eq service 'openai) (eq service 'azure-openai))
-               (or (string-prefix-p "o1" model) (string-prefix-p "o3" model)))
+               (string-prefix-p "o" model))
       (setq messages (cl-remove-if (lambda (msg) (string-equal (plist-get msg :role) "system")) messages))
       ;; o1 does not support max-tokens
       (when max-tokens
-        (setq max-tokens nil)
-        (setq max-completion-tokens (or max-tokens 128000))))
+        (setq max-completion-tokens (or max-tokens 128000))
+	(setq max-tokens nil)))
 
    (let* ((input (if messages `(messages . ,messages) `(prompt . ,prompt)))
           ;; TODO yet unsupported properties: n, stop, logit_bias, user
@@ -746,7 +746,7 @@ is the presence penalty.
                               (model . ,model)
                               ,@(when stream                `((stream . ,stream)))
                               ,@(when max-tokens            `((max_tokens . ,max-tokens)))
-                              ,@(when max-completion-tokens `((max-completion-tokens . ,max-completion-tokens)))
+                              ,@(when max-completion-tokens `((max_completion_tokens . ,max-completion-tokens)))
                               ,@(when temperature           `((temperature . ,temperature)))
                               ,@(when top-p                 `((top_p . ,top-p)))
                               ,@(when frequency-penalty     `((frequency_penalty . ,frequency-penalty)))
