@@ -274,6 +274,8 @@ whether messages are provided."
   "Determine the correct headers based on the service."
   (let ((service (or service org-ai-service)))
     `(("Content-Type" . "application/json")
+      ,@(when (eq service 'perplexity.ai)
+          '(("X-Pplx-Integration" . "org-ai")))
       ,@(cond
         ((eq service 'azure-openai)
          `(("api-key" . ,(org-ai--openai-get-token service))))
